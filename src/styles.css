@@ -1,0 +1,11 @@
+body {
+  margin: 0;
+  background-color: #020617;
+  color: #e2e8f0;
+  overflow: hidden;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}

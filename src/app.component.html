@@ -1,0 +1,137 @@
+<div class="app-container">
+
+  <div class="viewer-pane">
+    <div class="viewer-background">
+      <app-orbital-viewer [n]="n()" [l]="l()" [m]="m()" [resolution]="resolution()" [opacity]="opacity()"
+        [glow]="glow()" [colorTheme]="colorTheme()" [sliceX]="sliceX()" [sliceY]="sliceY()" [sliceZ]="sliceZ()"
+        [showIsoLines]="showIsoLines()" [showCloud]="showCloud()" [contourDensity]="contourDensity()"
+        [rotationSpeed]="rotationSpeed()">
+      </app-orbital-viewer>
+    </div>
+  </div>
+
+  <div class="sidebar">
+
+    <div class="sidebar-inner">
+
+      <div class="panel-section no-top-padding">
+        <div class="tab-group">
+          <button (click)="activeTab.set('orbitals')" class="tab-link" [class.active]="activeTab() === 'orbitals'">
+            Orbitals
+            @if(activeTab() === 'orbitals') { <span class="tab-indicator"></span> }
+          </button>
+          <button (click)="activeTab.set('rendering')" class="tab-link" [class.active]="activeTab() === 'rendering'">
+            Rendering
+            @if(activeTab() === 'rendering') { <span class="tab-indicator"></span> }
+          </button>
+        </div>
+      </div>
+
+      <div class="tab-content">
+
+        @if (activeTab() === 'orbitals') {
+        <div class="stack-large">
+
+          <div class="stack-small">
+
+            <div class="groups-container">
+              @for (group of orbitalGroups; track group.n) {
+              <div class="group-row">
+                <div class="group-label">{{group.n}}</div>
+                <div class="group-items">
+                  @for (p of group.orbitals; track p.name) {
+                  <button (click)="selectPreset(p)" class="btn-chip" [class.active]="isPresetActive(p)"
+                    [class.type-s]="p.l === 0" [class.type-p]="p.l === 1" [class.type-d]="p.l === 2"
+                    [class.type-f]="p.l === 3" [class.inactive]="!isPresetActive(p)">
+                    {{ p.name }}
+                  </button>
+                  }
+                </div>
+              </div>
+              }
+            </div>
+
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="stack-medium">
+            <app-slider label="Principal (n)" [value]="n()" [min]="1" [max]="7" [displayValue]="n()"
+              (valueChange)="n.set($event)" />
+
+            <app-slider label="Azimuthal (l)" [value]="l()" [min]="0" [max]="n() - 1"
+              [displayValue]="l() + ' (' + lName() + ')'" (valueChange)="l.set($event)" />
+
+            <app-slider label="Magnetic (m)" [value]="m()" [min]="0" [max]="l()" [displayValue]="m()"
+              (valueChange)="m.set($event)" />
+          </div>
+
+        </div>
+        }
+
+        @if (activeTab() === 'rendering') {
+        <div class="stack-large">
+
+          <div class="stack-small">
+            <div class="segment-group">
+              <button (click)="colorTheme.set(0)" class="btn-segment" [class.active]="colorTheme() === 0"
+                [class.inactive]="colorTheme() !== 0">Standard</button>
+              <button (click)="colorTheme.set(1)" class="btn-segment" [class.active]="colorTheme() === 1"
+                [class.inactive]="colorTheme() !== 1">Heatmap</button>
+              <button (click)="colorTheme.set(2)" class="btn-segment" [class.active]="colorTheme() === 2"
+                [class.inactive]="colorTheme() !== 2">Cyber</button>
+            </div>
+          </div>
+
+          <div class="grid-2">
+            <button (click)="toggleCloud()" class="btn-tile" [class.active]="showCloud()"
+              [class.inactive]="!showCloud()">
+              <span class="dot" [class.on]="showCloud()" [class.off]="!showCloud()"></span>
+              Electron Cloud
+            </button>
+
+            <button (click)="toggleIsoLines()" class="btn-tile" [class.active]="showIsoLines()"
+              [class.inactive]="!showIsoLines()">
+              <span class="dot" [class.on]="showIsoLines()" [class.off]="!showIsoLines()"></span>
+              Iso-Contours
+            </button>
+          </div>
+
+          <div class="stack-medium">
+            <app-slider label="Opacity" [value]="opacity()" [min]="0.05" [max]="1.0" [step]="0.05"
+              [displayValue]="(opacity()*100).toFixed(0)+'%'" (valueChange)="opacity.set($event)" />
+            <app-slider label="Glow Intensity" [value]="glow()" [min]="0.5" [max]="3.0" [step]="0.1"
+              [displayValue]="glow()" (valueChange)="glow.set($event)" />
+            <app-slider label="Contour Frequency" [value]="contourDensity()" [min]="20" [max]="200" [step]="10"
+              [displayValue]="contourDensity()" (valueChange)="contourDensity.set($event)" />
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="stack-medium">
+            <app-slider label="Cut X" [value]="sliceX()" [min]="-1.0" [max]="1.0" [step]="0.05"
+              [displayValue]="sliceX()" (valueChange)="sliceX.set($event)" />
+            <app-slider label="Cut Y" [value]="sliceY()" [min]="-1.0" [max]="1.0" [step]="0.05"
+              [displayValue]="sliceY()" (valueChange)="sliceY.set($event)" />
+            <app-slider label="Cut Z" [value]="sliceZ()" [min]="-1.0" [max]="1.0" [step]="0.05"
+              [displayValue]="sliceZ()" (valueChange)="sliceZ.set($event)" />
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="stack-medium">
+            <app-slider label="Auto Rotation" [value]="rotationSpeed()" [min]="-2.0" [max]="2.0" [step]="0.1"
+              [displayValue]="rotationSpeed()" (valueChange)="rotationSpeed.set($event)" />
+            <app-slider label="Grid Resolution" subLabel="High values affect performance" [value]="resolution()"
+              [min]="32" [max]="96" [step]="8" [displayValue]="resolution() + '³'"
+              (valueChange)="resolution.set($event)" />
+          </div>
+
+        </div>
+        }
+        <a class="app-link" href="https://github.com/xiety/ChemistryApp">https://github.com/xiety/ChemistryApp</a>
+      </div>
+
+    </div>
+  </div>
+</div>
