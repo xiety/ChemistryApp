@@ -1,7 +1,7 @@
 import { Component, ElementRef, OnDestroy, AfterViewInit, ViewChild, effect, input, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { OrbitalMathService } from '../services/orbital-math.service';
-import { OrbitalRenderingService } from '../services/orbital-rendering.service';
+import { OrbitalRenderingService, DEFAULT_SETTINGS } from '../services/orbital-rendering.service';
 
 @Component({
   selector: 'app-orbital-viewer',
@@ -29,23 +29,23 @@ export class OrbitalViewerComponent implements AfterViewInit, OnDestroy {
   m = input.required<number>();
   resolution = input.required<number>();
 
-  showCloud = input<boolean>(true);
-  showIsoLines = input<boolean>(false);
-  showMesh = input<boolean>(false);
-  showStats = input<boolean>(true);
+  showCloud = input<boolean>(DEFAULT_SETTINGS.showCloud);
+  showIsoLines = input<boolean>(DEFAULT_SETTINGS.showIsoLines);
+  showMesh = input<boolean>(DEFAULT_SETTINGS.showMesh);
+  showStats = input<boolean>(DEFAULT_SETTINGS.showStats);
 
-  threshold = input<number>(0.2);
-  opacity = input<number>(0.5);
-  glow = input<number>(1.5);
-  colorTheme = input<number>(0);
-  contourDensity = input<number>(100.0);
-  rotationSpeed = input<number>(0);
+  threshold = input<number>(DEFAULT_SETTINGS.threshold);
+  opacity = input<number>(DEFAULT_SETTINGS.opacity);
+  glow = input<number>(DEFAULT_SETTINGS.glow);
+  colorTheme = input<number>(DEFAULT_SETTINGS.colorTheme);
+  contourDensity = input<number>(DEFAULT_SETTINGS.contourDensity);
+  rotationSpeed = input<number>(DEFAULT_SETTINGS.rotationSpeed);
 
-  sliceX = input<number>(1.0);
-  sliceY = input<number>(1.0);
-  sliceZ = input<number>(1.0);
+  sliceX = input<number>(DEFAULT_SETTINGS.sliceX);
+  sliceY = input<number>(DEFAULT_SETTINGS.sliceY);
+  sliceZ = input<number>(DEFAULT_SETTINGS.sliceZ);
 
-  dithering = input<number>(0.0);
+  dithering = input<number>(DEFAULT_SETTINGS.dithering);
 
   isLoading = signal(false);
   viewReady = signal(false);
@@ -80,7 +80,8 @@ export class OrbitalViewerComponent implements AfterViewInit, OnDestroy {
         sliceY: this.sliceY(),
         sliceZ: this.sliceZ(),
         threshold: this.threshold(),
-        dithering: this.dithering()
+        dithering: this.dithering(),
+        resolution: this.resolution()
       });
     });
   }

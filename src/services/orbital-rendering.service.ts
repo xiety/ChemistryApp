@@ -27,12 +27,30 @@ export interface RenderSettings {
   sliceZ: number;
   threshold: number;
   dithering: number;
+  resolution: number;
 }
+
+export const DEFAULT_SETTINGS: RenderSettings = {
+  opacity: 0.65,
+  glow: 2.0,
+  colorTheme: 0,
+  showIsoLines: false,
+  showCloud: true,
+  showMesh: false,
+  showStats: true,
+  contourDensity: 50,
+  rotationSpeed: 0.5,
+  sliceX: 1.0,
+  sliceY: 1.0,
+  sliceZ: 1.0,
+  threshold: 0.15,
+  dithering: 0.0,
+  resolution: 96
+};
 
 THREE.ColorManagement.enabled = false;
 
 const MAX_POLY_COUNT = 500000;
-const INITIAL_RESOLUTION = 96;
 
 const THEME_STD_POS = new THREE.Color(0x3399ff);
 const THEME_STD_NEG = new THREE.Color(0xff3333);
@@ -123,7 +141,7 @@ export class OrbitalRenderingService implements OnDestroy {
 
   private setupVolumetricBox() {
     const geometry = new THREE.BoxGeometry(2, 2, 2);
-    const size = INITIAL_RESOLUTION;
+    const size = DEFAULT_SETTINGS.resolution;
     const initialData = new Float32Array(size * size * size);
 
     this.volumeTexture = new THREE.Data3DTexture(initialData, size, size, size);
@@ -138,18 +156,18 @@ export class OrbitalRenderingService implements OnDestroy {
       uniforms: {
         uVolume: { value: this.volumeTexture },
         uCameraPos: { value: this.camera.position },
-        uIntensity: { value: 5.0 },
-        uGlow: { value: 1.5 },
-        uColorTheme: { value: 0 },
+        uIntensity: { value: DEFAULT_SETTINGS.opacity * 10.0 },
+        uGlow: { value: DEFAULT_SETTINGS.glow },
+        uColorTheme: { value: DEFAULT_SETTINGS.colorTheme },
         uColorPos: { value: new THREE.Color().copy(THEME_STD_POS) },
         uColorNeg: { value: new THREE.Color().copy(THEME_STD_NEG) },
-        uIsoLines: { value: 0.0 },
-        uShowCloud: { value: 1.0 },
-        uContourFreq: { value: 100.0 },
-        uSliceX: { value: 1.0 },
-        uSliceY: { value: 1.0 },
-        uSliceZ: { value: 1.0 },
-        uDithering: { value: 0.0 }
+        uIsoLines: { value: DEFAULT_SETTINGS.showIsoLines ? 1.0 : 0.0 },
+        uShowCloud: { value: DEFAULT_SETTINGS.showCloud ? 1.0 : 0.0 },
+        uContourFreq: { value: DEFAULT_SETTINGS.contourDensity },
+        uSliceX: { value: DEFAULT_SETTINGS.sliceX },
+        uSliceY: { value: DEFAULT_SETTINGS.sliceY },
+        uSliceZ: { value: DEFAULT_SETTINGS.sliceZ },
+        uDithering: { value: DEFAULT_SETTINGS.dithering }
       },
       vertexShader: VERTEX_SHADER,
       fragmentShader: FRAGMENT_SHADER,
@@ -184,7 +202,7 @@ export class OrbitalRenderingService implements OnDestroy {
       clipShadows: true
     });
 
-    this.marchingCubes = new MarchingCubes(INITIAL_RESOLUTION, this.meshMaterial, true, false, MAX_POLY_COUNT);
+    this.marchingCubes = new MarchingCubes(DEFAULT_SETTINGS.resolution, this.meshMaterial, true, false, MAX_POLY_COUNT);
     this.marchingCubes.scale.set(1.0, 1.0, 1.0);
     this.marchingCubes.visible = false;
     this.marchingCubes.renderOrder = 1;

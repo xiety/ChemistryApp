@@ -4,6 +4,7 @@ import { OrbitalViewerComponent } from './components/orbital-viewer.component';
 import { SliderComponent } from './components/slider.component';
 import { SwitchComponent } from './components/switch.component';
 import { OrbitalMathService, OrbitalPreset, OrbitalGroup, ORBITAL_LABELS } from './services/orbital-math.service';
+import { DEFAULT_SETTINGS } from './services/orbital-rendering.service';
 
 @Component({
   selector: 'app-root',
@@ -19,25 +20,25 @@ export class AppComponent {
   l = signal(1);
   m = signal(0);
 
-  resolution = signal(96);
-  opacity = signal(0.65);
-  glow = signal(2.0);
-  rotationSpeed = signal(0.5);
-  colorTheme = signal(0);
-  dithering = signal(0);
+  resolution = signal(DEFAULT_SETTINGS.resolution);
+  opacity = signal(DEFAULT_SETTINGS.opacity);
+  glow = signal(DEFAULT_SETTINGS.glow);
+  rotationSpeed = signal(DEFAULT_SETTINGS.rotationSpeed);
+  colorTheme = signal(DEFAULT_SETTINGS.colorTheme);
+  dithering = signal(DEFAULT_SETTINGS.dithering);
 
-  showCloud = signal(true);
-  showIsoLines = signal(false);
-  showMesh = signal(false);
-  showStats = signal(true);
+  showCloud = signal(DEFAULT_SETTINGS.showCloud);
+  showIsoLines = signal(DEFAULT_SETTINGS.showIsoLines);
+  showMesh = signal(DEFAULT_SETTINGS.showMesh);
+  showStats = signal(DEFAULT_SETTINGS.showStats);
 
-  surfaceThreshold = signal(0.15);
+  surfaceThreshold = signal(DEFAULT_SETTINGS.threshold);
 
-  sliceX = signal(1.0);
-  sliceY = signal(1.0);
-  sliceZ = signal(1.0);
+  sliceX = signal(DEFAULT_SETTINGS.sliceX);
+  sliceY = signal(DEFAULT_SETTINGS.sliceY);
+  sliceZ = signal(DEFAULT_SETTINGS.sliceZ);
 
-  contourDensity = signal(50);
+  contourDensity = signal(DEFAULT_SETTINGS.contourDensity);
 
   showControls = signal(true);
   activeTab = signal<'orbitals' | 'rendering'>('orbitals');
