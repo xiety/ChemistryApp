@@ -6,10 +6,10 @@ const COMMON_COLOR_FN = `
           float t = abs(val) * 1.5;
           t = clamp(t, 0.0, 1.0);
 
-          vec3 c1 = vec3(0.0, 0.0, 0.0);
-          vec3 c2 = vec3(0.8, 0.1, 0.3);
-          vec3 c3 = vec3(1.0, 0.6, 0.1);
-          vec3 c4 = vec3(1.0, 1.0, 0.9);
+          const vec3 c1 = vec3(0.0, 0.0, 0.0);
+          const vec3 c2 = vec3(0.8, 0.1, 0.3);
+          const vec3 c3 = vec3(1.0, 0.6, 0.1);
+          const vec3 c4 = vec3(1.0, 1.0, 0.9);
 
           if (t < 0.33) base = mix(c1, c2, t * 3.0);
           else if (t < 0.66) base = mix(c2, c3, (t - 0.33) * 3.0);
@@ -51,8 +51,7 @@ export const FRAGMENT_SHADER = `
 
   varying vec3 vOrigin;
 
-  const int MAX_STEPS = 160;
-  const float STEP_SIZE = 0.015625;
+  const float STEP_SIZE = 0.015;
 
   ${COMMON_COLOR_FN}
 
@@ -69,7 +68,8 @@ export const FRAGMENT_SHADER = `
   }
 
   void main() {
-    vec3 rayDir = normalize(vOrigin - uCameraPos);
+    vec3 renderOrigin = vOrigin;
+    vec3 rayDir = normalize(renderOrigin - uCameraPos);
     vec2 bounds = hitBox(uCameraPos, rayDir);
 
     if (bounds.x > bounds.y) discard;
@@ -82,8 +82,11 @@ export const FRAGMENT_SHADER = `
 
     vec4 colorAcc = vec4(0.0);
     float dist = tStart;
-    
-    for(int i = 0; i < MAX_STEPS; i++) {
+
+    bool showCloud = uShowCloud > 0.5;
+    bool showIso = uIsoLines > 0.5;
+
+    for(int i = 0; i < 150; i++) {
       if (dist > tEnd || colorAcc.a >= 0.98) break;
 
       if (p.x > uSliceX || p.y > uSliceY || p.z > uSliceZ) {
@@ -100,15 +103,14 @@ export const FRAGMENT_SHADER = `
       if (density > 0.0001) {
         float alpha = 0.0;
         vec3 emission = vec3(0.0);
-
         vec3 baseColor = getOrbitalColor(val);
 
-        if (uShowCloud > 0.5) {
+        if (showCloud) {
           alpha += density * uIntensity * 0.8;
           emission += baseColor * uGlow * (0.8 + density * 2.0);
         }
 
-        if (uIsoLines > 0.5) {
+        if (showIso) {
             float contour = sin(density * uContourFreq);
             float line = smoothstep(0.9, 1.0, contour);
             emission += baseColor * line * 2.0;

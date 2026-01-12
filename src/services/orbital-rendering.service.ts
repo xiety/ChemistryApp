@@ -19,6 +19,7 @@ export interface RenderSettings {
   showIsoLines: boolean;
   showCloud: boolean;
   showMesh: boolean;
+  showStats: boolean;
   contourDensity: number;
   rotationSpeed: number;
   sliceX: number;
@@ -26,6 +27,8 @@ export interface RenderSettings {
   sliceZ: number;
   threshold: number;
 }
+
+THREE.ColorManagement.enabled = false;
 
 const MAX_POLY_COUNT = 500000;
 const INITIAL_RESOLUTION = 96;
@@ -75,17 +78,14 @@ export class OrbitalRenderingService implements OnDestroy {
     this.scene = new THREE.Scene();
 
     this.camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 100);
-    this.camera.position.set(0, 0, 2.5);
+    this.camera.position.set(0, 0, 3);
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
-
-    this.renderer.setSize(width, height);
-
-    const pixelRatio = Math.min(window.devicePixelRatio, 2.0);
-    this.renderer.setPixelRatio(pixelRatio);
-
-    this.renderer.setClearColor(0x000000, 0);
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
+    this.renderer.setClearColor(0x000000, 1);
     this.renderer.localClippingEnabled = true;
+
+    this.renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
+    this.renderer.toneMapping = THREE.NoToneMapping;
 
     container.appendChild(this.renderer.domElement);
 
@@ -102,11 +102,13 @@ export class OrbitalRenderingService implements OnDestroy {
     this.setupMarchingCubes();
 
     this.isInitialized = true;
+
+    this.resize(width, height);
     this.animate();
   }
 
   private setupLights() {
-    const ambLight = new THREE.AmbientLight(0xffffff, 0.2);
+    const ambLight = new THREE.AmbientLight(0xffffff, 0.8);
     this.scene.add(ambLight);
 
     const dirLight = new THREE.DirectionalLight(0xffffff, 2.0);
@@ -172,7 +174,7 @@ export class OrbitalRenderingService implements OnDestroy {
         uMeshOffset: { value: 0.0 }
       },
       roughness: 0.2,
-      metalness: 0.1,
+      metalness: 0.0,
       transparent: true,
       opacity: 0.9,
       side: THREE.DoubleSide,
@@ -281,12 +283,17 @@ export class OrbitalRenderingService implements OnDestroy {
     if (this.marchingCubes) {
       this.marchingCubes.visible = s.showMesh;
     }
+
+    if (this.stats) {
+      this.stats.dom.style.display = s.showStats ? 'block' : 'none';
+    }
   }
 
   resize(width: number, height: number) {
     if (!this.isInitialized) return;
 
     this.renderer.setSize(width, height);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();

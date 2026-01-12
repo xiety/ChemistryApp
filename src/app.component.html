@@ -1,15 +1,46 @@
-<div class="app-container">
+<div class="app-container" [class.full-view]="!showControls()">
 
   <div class="viewer-pane">
     <div class="viewer-background">
       <app-orbital-viewer [n]="n()" [l]="l()" [m]="m()" [resolution]="resolution()" [opacity]="opacity()"
         [glow]="glow()" [colorTheme]="colorTheme()" [sliceX]="sliceX()" [sliceY]="sliceY()" [sliceZ]="sliceZ()"
-        [showIsoLines]="showIsoLines()" [showCloud]="showCloud()" [showMesh]="showMesh()"
+        [showIsoLines]="showIsoLines()" [showCloud]="showCloud()" [showMesh]="showMesh()" [showStats]="showStats()"
         [contourDensity]="contourDensity()" [rotationSpeed]="rotationSpeed()" [threshold]="surfaceThreshold()">
       </app-orbital-viewer>
     </div>
+
+    <div class="viewer-controls">
+      <button class="btn-icon glass" (click)="toggleFullScreen()"
+        [title]="isFullscreen() ? 'Exit Fullscreen' : 'Enter Fullscreen'">
+        @if (isFullscreen()) {
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
+        </svg>
+        } @else {
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round"
+            d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+        </svg>
+        }
+      </button>
+
+      <button class="btn-icon glass" (click)="toggleControls()"
+        [title]="showControls() ? 'Hide Settings' : 'Show Settings'">
+        @if (showControls()) {
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+        } @else {
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+        }
+      </button>
+    </div>
   </div>
 
+  @if (showControls()) {
   <div class="sidebar">
 
     <div class="sidebar-inner">
@@ -84,7 +115,7 @@
           </div>
 
           <div class="stack-small">
-            <div class="grid-2" style="grid-template-columns: 1fr 1fr 1fr;">
+            <div class="grid-3">
               <button (click)="toggleCloud()" class="btn-tile" [class.active]="showCloud()"
                 [class.inactive]="!showCloud()">
                 <span class="dot" [class.on]="showCloud()" [class.off]="!showCloud()"></span>
@@ -107,12 +138,11 @@
 
           <div class="stack-medium">
             @if(showMesh()) {
-            <div class="stack-medium">
-              <app-slider label="Mesh Threshold" [value]="surfaceThreshold()" [min]="0.01" [max]="0.6" [step]="0.01"
-                [displayValue]="surfaceThreshold().toFixed(2)" (valueChange)="surfaceThreshold.set($event)" />
-            </div>
-            <div class="divider"></div>
+            <app-slider label="Mesh Threshold" [value]="surfaceThreshold()" [min]="0.01" [max]="0.6" [step]="0.01"
+              [displayValue]="surfaceThreshold().toFixed(2)" (valueChange)="surfaceThreshold.set($event)" />
             }
+
+            <div class="divider"></div>
 
             <app-slider label="Opacity" [value]="opacity()" [min]="0.05" [max]="1.0" [step]="0.05"
               [displayValue]="(opacity()*100).toFixed(0)+'%'" (valueChange)="opacity.set($event)" />
@@ -126,7 +156,6 @@
             <app-slider label="Contour Frequency" [value]="contourDensity()" [min]="20" [max]="200" [step]="10"
               [displayValue]="contourDensity()" (valueChange)="contourDensity.set($event)" />
             }
-
 
             <div class="divider"></div>
 
@@ -147,6 +176,9 @@
               [displayValue]="resolution() + '³'" (valueChange)="resolution.set($event)" />
           </div>
 
+          <app-switch label="Show Performance Stats (FPS)" [checked]="showStats()"
+            (checkedChange)="toggleStats($event)" />
+
         </div>
         }
         <a class="app-link" href="https://github.com/xiety/ChemistryApp">https://github.com/xiety/ChemistryApp</a>
@@ -154,4 +186,5 @@
 
     </div>
   </div>
+  }
 </div>

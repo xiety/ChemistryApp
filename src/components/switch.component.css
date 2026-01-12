@@ -1,0 +1,66 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.switch-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 0.25rem;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+
+  .label-text {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #94a3b8;
+    transition: color 0.2s;
+  }
+
+  input[type="checkbox"] {
+    display: none;
+
+    &:checked+.switch-track {
+      background-color: #3b82f6;
+    }
+
+    &:checked+.switch-track .switch-thumb {
+      transform: translateX(20px);
+    }
+  }
+
+  .switch-track {
+    width: 44px;
+    height: 24px;
+    background-color: #334155;
+    border-radius: 9999px;
+    position: relative;
+    transition: background-color 0.2s ease;
+  }
+
+  .switch-thumb {
+    width: 20px;
+    height: 20px;
+    background-color: white;
+    border-radius: 50%;
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+    transition: transform 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+  }
+
+  &:hover .label-text {
+    color: #e2e8f0;
+  }
+
+  &:hover .switch-track {
+    background-color: #475569;
+  }
+
+  &:hover input:checked+.switch-track {
+    background-color: #2563eb;
+  }
+}

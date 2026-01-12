@@ -32,6 +32,7 @@ export class OrbitalViewerComponent implements AfterViewInit, OnDestroy {
   showCloud = input<boolean>(true);
   showIsoLines = input<boolean>(false);
   showMesh = input<boolean>(false);
+  showStats = input<boolean>(true);
 
   threshold = input<number>(0.2);
   opacity = input<number>(0.5);
@@ -49,6 +50,7 @@ export class OrbitalViewerComponent implements AfterViewInit, OnDestroy {
 
   private isCalculating = false;
   private pendingRequest: { n: number, l: number, m: number, res: number; } | null = null;
+  private resizeObserver: ResizeObserver | null = null;
 
   constructor(
     private mathService: OrbitalMathService,
@@ -69,6 +71,7 @@ export class OrbitalViewerComponent implements AfterViewInit, OnDestroy {
         showIsoLines: this.showIsoLines(),
         showCloud: this.showCloud(),
         showMesh: this.showMesh(),
+        showStats: this.showStats(),
         contourDensity: this.contourDensity(),
         rotationSpeed: this.rotationSpeed(),
         sliceX: this.sliceX(),
@@ -84,18 +87,19 @@ export class OrbitalViewerComponent implements AfterViewInit, OnDestroy {
     this.renderService.init(el, el.clientWidth || 300, el.clientHeight || 300);
     this.viewReady.set(true);
 
-    window.addEventListener('resize', this.onWindowResize);
+    this.resizeObserver = new ResizeObserver(() => {
+      if (this.container && this.viewReady()) {
+        const element = this.container.nativeElement;
+        this.renderService.resize(element.clientWidth, element.clientHeight);
+      }
+    });
+
+    this.resizeObserver.observe(el);
   }
 
   ngOnDestroy() {
-    window.removeEventListener('resize', this.onWindowResize);
+    this.resizeObserver?.disconnect();
   }
-
-  private onWindowResize = () => {
-    if (!this.container) return;
-    const el = this.container.nativeElement;
-    this.renderService.resize(el.clientWidth, el.clientHeight);
-  };
 
   private queueLoad(n: number, l: number, m: number, res: number) {
     this.pendingRequest = { n, l, m, res };

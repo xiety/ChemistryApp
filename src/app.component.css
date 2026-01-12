@@ -25,14 +25,49 @@
   }
 }
 
-.icon {
-  width: 1.5rem;
-  height: 1.5rem;
+.viewer-controls {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 50;
+  display: flex;
+  gap: 0.75rem;
 }
 
-.icon-small {
-  width: 1.25rem;
-  height: 1.25rem;
+.btn-icon {
+  width: 2.75rem;
+  height: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 0.75rem;
+  cursor: pointer;
+  color: #cbd5e1;
+  transition: all 0.2s;
+  padding: 0;
+
+  &.glass {
+    background-color: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  &:hover {
+    background-color: rgba(30, 41, 59, 0.8);
+    color: #60a5fa;
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  svg {
+    width: 1.5rem;
+    height: 1.5rem;
+  }
 }
 
 .sidebar {
@@ -67,6 +102,11 @@
     width: 100%;
   }
 
+  .app-container.full-view .viewer-pane {
+    flex: 1;
+    height: 100%;
+  }
+
   .sidebar {
     width: 100%;
     flex: 1;
@@ -78,12 +118,6 @@
   .sidebar-inner {
     width: 100%;
   }
-}
-
-.sidebar-top-controls {
-  padding: 0.75rem 1rem 0 1rem;
-  display: flex;
-  justify-content: flex-end;
 }
 
 .panel-section {
@@ -102,10 +136,6 @@
 @media (max-width: 900px) {
   .panel-section {
     padding: 0.75rem;
-  }
-
-  .sidebar-top-controls {
-    padding-right: 0.75rem;
   }
 }
 
@@ -320,6 +350,12 @@
 .grid-2 {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 0.75rem;
 }
 

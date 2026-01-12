@@ -2,12 +2,13 @@ import { Component, signal, computed, effect, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { OrbitalViewerComponent } from './components/orbital-viewer.component';
 import { SliderComponent } from './components/slider.component';
+import { SwitchComponent } from './components/switch.component';
 import { OrbitalMathService, OrbitalPreset, OrbitalGroup, ORBITAL_LABELS } from './services/orbital-math.service';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, OrbitalViewerComponent, SliderComponent],
+  imports: [CommonModule, OrbitalViewerComponent, SliderComponent, SwitchComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
@@ -27,6 +28,7 @@ export class AppComponent {
   showCloud = signal(true);
   showIsoLines = signal(false);
   showMesh = signal(false);
+  showStats = signal(true);
 
   surfaceThreshold = signal(0.15);
 
@@ -38,6 +40,7 @@ export class AppComponent {
 
   showControls = signal(true);
   activeTab = signal<'orbitals' | 'rendering'>('orbitals');
+  isFullscreen = signal(false);
 
   orbitalGroups: OrbitalGroup[] = [];
 
@@ -72,6 +75,10 @@ export class AppComponent {
         this.m.set(this.l());
       }
     });
+
+    document.addEventListener('fullscreenchange', () => {
+      this.isFullscreen.set(!!document.fullscreenElement);
+    });
   }
 
   selectPreset(p: OrbitalPreset) {
@@ -88,6 +95,18 @@ export class AppComponent {
     this.showControls.update(v => !v);
   }
 
+  toggleFullScreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error(`Error enabling full-screen mode: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  }
+
   toggleCloud() {
     this.showCloud.update(v => !v);
   }
@@ -98,5 +117,9 @@ export class AppComponent {
 
   toggleMesh() {
     this.showMesh.update(v => !v);
+  }
+
+  toggleStats(val: boolean) {
+    this.showStats.set(val);
   }
 }
