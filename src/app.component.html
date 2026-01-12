@@ -5,7 +5,8 @@
       <app-orbital-viewer [n]="n()" [l]="l()" [m]="m()" [resolution]="resolution()" [opacity]="opacity()"
         [glow]="glow()" [colorTheme]="colorTheme()" [sliceX]="sliceX()" [sliceY]="sliceY()" [sliceZ]="sliceZ()"
         [showIsoLines]="showIsoLines()" [showCloud]="showCloud()" [showMesh]="showMesh()" [showStats]="showStats()"
-        [contourDensity]="contourDensity()" [rotationSpeed]="rotationSpeed()" [threshold]="surfaceThreshold()">
+        [contourDensity]="contourDensity()" [rotationSpeed]="rotationSpeed()" [threshold]="surfaceThreshold()"
+        [dithering]="dithering()">
       </app-orbital-viewer>
     </div>
 
@@ -174,6 +175,8 @@
               [displayValue]="rotationSpeed()" (valueChange)="rotationSpeed.set($event)" />
             <app-slider label="Grid Resolution" [value]="resolution()" [min]="64" [max]="128" [step]="8"
               [displayValue]="resolution() + '³'" (valueChange)="resolution.set($event)" />
+            <app-slider label="Dithering" [value]="dithering()" [min]="0" [max]="1" [step]="0.01"
+              [displayValue]="dithering().toFixed(2)" (valueChange)="dithering.set($event)" />
           </div>
 
           <app-switch label="Show Performance Stats (FPS)" [checked]="showStats()"

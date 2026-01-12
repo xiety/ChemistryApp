@@ -45,6 +45,8 @@ export class OrbitalViewerComponent implements AfterViewInit, OnDestroy {
   sliceY = input<number>(1.0);
   sliceZ = input<number>(1.0);
 
+  dithering = input<number>(0.0);
+
   isLoading = signal(false);
   viewReady = signal(false);
 
@@ -77,7 +79,8 @@ export class OrbitalViewerComponent implements AfterViewInit, OnDestroy {
         sliceX: this.sliceX(),
         sliceY: this.sliceY(),
         sliceZ: this.sliceZ(),
-        threshold: this.threshold()
+        threshold: this.threshold(),
+        dithering: this.dithering()
       });
     });
   }

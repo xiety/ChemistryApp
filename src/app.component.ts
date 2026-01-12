@@ -24,6 +24,7 @@ export class AppComponent {
   glow = signal(2.0);
   rotationSpeed = signal(0.5);
   colorTheme = signal(0);
+  dithering = signal(0);
 
   showCloud = signal(true);
   showIsoLines = signal(false);

@@ -48,12 +48,17 @@ export const FRAGMENT_SHADER = `
   uniform float uSliceX;
   uniform float uSliceY;
   uniform float uSliceZ;
+  uniform float uDithering;
 
   varying vec3 vOrigin;
 
   const float STEP_SIZE = 0.015;
 
   ${COMMON_COLOR_FN}
+
+  float random(vec2 p) {
+    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+  }
 
   vec2 hitBox(vec3 origin, vec3 dir) {
     const vec3 boxMin = vec3(-1.0);
@@ -76,6 +81,9 @@ export const FRAGMENT_SHADER = `
 
     float tStart = max(bounds.x, 0.0);
     float tEnd = bounds.y;
+
+    float jitter = random(gl_FragCoord.xy); 
+    tStart += jitter * STEP_SIZE * uDithering;
 
     vec3 p = uCameraPos + tStart * rayDir;
     vec3 marchStep = rayDir * STEP_SIZE;

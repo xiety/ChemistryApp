@@ -26,6 +26,7 @@ export interface RenderSettings {
   sliceY: number;
   sliceZ: number;
   threshold: number;
+  dithering: number;
 }
 
 THREE.ColorManagement.enabled = false;
@@ -147,7 +148,8 @@ export class OrbitalRenderingService implements OnDestroy {
         uContourFreq: { value: 100.0 },
         uSliceX: { value: 1.0 },
         uSliceY: { value: 1.0 },
-        uSliceZ: { value: 1.0 }
+        uSliceZ: { value: 1.0 },
+        uDithering: { value: 0.0 }
       },
       vertexShader: VERTEX_SHADER,
       fragmentShader: FRAGMENT_SHADER,
@@ -251,6 +253,7 @@ export class OrbitalRenderingService implements OnDestroy {
       this.volMaterial.uniforms['uSliceX'].value = s.sliceX;
       this.volMaterial.uniforms['uSliceY'].value = s.sliceY;
       this.volMaterial.uniforms['uSliceZ'].value = s.sliceZ;
+      this.volMaterial.uniforms['uDithering'].value = s.dithering;
     }
 
     this.planeX.constant = s.sliceX;
