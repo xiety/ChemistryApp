@@ -19,10 +19,6 @@ import { Component, input, output } from '@angular/core';
           (input)="onInput($event)"
           class="range-input">
       </div>
-
-      @if (subLabel()) {
-        <div class="sub-label">{{ subLabel() }}</div>
-      }
     </div>
   `,
   styleUrl: './slider.component.css'
@@ -34,7 +30,6 @@ export class SliderComponent {
   max = input.required<number>();
   step = input<number>(1);
   displayValue = input<string | number>('');
-  subLabel = input<string>('');
 
   valueChange = output<number>();
 

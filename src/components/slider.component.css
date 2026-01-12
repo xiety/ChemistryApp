@@ -1,3 +1,8 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
 .slider-container {
   padding: 0.5rem 0;
 
@@ -76,11 +81,5 @@
         background: #60a5fa;
       }
     }
-  }
-
-  .sub-label {
-    margin-top: 0.25rem;
-    font-size: 0.75rem;
-    color: #64748b;
   }
 }

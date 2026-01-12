@@ -2,7 +2,7 @@ import { Component, signal, computed, effect, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { OrbitalViewerComponent } from './components/orbital-viewer.component';
 import { SliderComponent } from './components/slider.component';
-import { OrbitalMathService, OrbitalPreset, OrbitalGroup } from './services/orbital-math.service';
+import { OrbitalMathService, OrbitalPreset, OrbitalGroup, ORBITAL_LABELS } from './services/orbital-math.service';
 
 @Component({
   selector: 'app-root',
@@ -18,18 +18,22 @@ export class AppComponent {
   l = signal(1);
   m = signal(0);
 
-  resolution = signal(48);
+  resolution = signal(96);
   opacity = signal(0.65);
   glow = signal(2.0);
   rotationSpeed = signal(0.5);
   colorTheme = signal(0);
 
+  showCloud = signal(true);
+  showIsoLines = signal(false);
+  showMesh = signal(false);
+
+  surfaceThreshold = signal(0.15);
+
   sliceX = signal(1.0);
   sliceY = signal(1.0);
   sliceZ = signal(1.0);
 
-  showCloud = signal(true);
-  showIsoLines = signal(false);
   contourDensity = signal(50);
 
   showControls = signal(true);
@@ -40,8 +44,7 @@ export class AppComponent {
   orbitalLabel = computed(() => {
     const n = this.n();
     const l = this.l();
-    const lNames = ['s', 'p', 'd', 'f', 'g', 'h', 'i'];
-    const lChar = lNames[l] || '?';
+    const lChar = ORBITAL_LABELS[l] || '?';
     return `${n}${lChar}`;
   });
 
@@ -52,7 +55,7 @@ export class AppComponent {
     return `m = ${m}`;
   });
 
-  lName = computed(() => ['s', 'p', 'd', 'f', 'g', 'h', 'i'][this.l()] || '?');
+  lName = computed(() => ORBITAL_LABELS[this.l()] || '?');
 
   constructor(private mathService: OrbitalMathService) {
     this.orbitalGroups = this.mathService.getOrbitalGroups();
@@ -91,5 +94,9 @@ export class AppComponent {
 
   toggleIsoLines() {
     this.showIsoLines.update(v => !v);
+  }
+
+  toggleMesh() {
+    this.showMesh.update(v => !v);
   }
 }

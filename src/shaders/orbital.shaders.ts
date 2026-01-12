@@ -1,3 +1,28 @@
+const COMMON_COLOR_FN = `
+  vec3 getOrbitalColor(float val) {
+      vec3 base = vec3(1.0);
+
+      if (uColorTheme == 2) {
+          float t = abs(val) * 1.5;
+          t = clamp(t, 0.0, 1.0);
+
+          vec3 c1 = vec3(0.0, 0.0, 0.0);
+          vec3 c2 = vec3(0.8, 0.1, 0.3);
+          vec3 c3 = vec3(1.0, 0.6, 0.1);
+          vec3 c4 = vec3(1.0, 1.0, 0.9);
+
+          if (t < 0.33) base = mix(c1, c2, t * 3.0);
+          else if (t < 0.66) base = mix(c2, c3, (t - 0.33) * 3.0);
+          else base = mix(c3, c4, (t - 0.66) * 3.0);
+      }
+      else {
+          base = mix(uColorNeg, uColorPos, step(0.0, val));
+      }
+
+      return base;
+  }
+`;
+
 export const VERTEX_SHADER = `
   varying vec3 vOrigin;
   void main() {
@@ -15,6 +40,8 @@ export const FRAGMENT_SHADER = `
   uniform float uIntensity;
   uniform float uGlow;
   uniform int uColorTheme;
+  uniform vec3 uColorPos;
+  uniform vec3 uColorNeg;
   uniform float uIsoLines;
   uniform float uShowCloud;
   uniform float uContourFreq;
@@ -23,6 +50,11 @@ export const FRAGMENT_SHADER = `
   uniform float uSliceZ;
 
   varying vec3 vOrigin;
+
+  const int MAX_STEPS = 160;
+  const float STEP_SIZE = 0.015625;
+
+  ${COMMON_COLOR_FN}
 
   vec2 hitBox(vec3 origin, vec3 dir) {
     const vec3 boxMin = vec3(-1.0);
@@ -36,35 +68,6 @@ export const FRAGMENT_SHADER = `
     return vec2(tNear, tFar);
   }
 
-  vec3 getEmissionColor(float val, float density) {
-      vec3 base = vec3(1.0);
-      
-      if (uColorTheme == 0) {
-          vec3 colPos = vec3(0.2, 0.6, 1.0);
-          vec3 colNeg = vec3(1.0, 0.2, 0.2);
-          base = mix(colNeg, colPos, step(0.0, val));
-      } 
-      else if (uColorTheme == 1) {
-          float t = sqrt(density) * 1.5;
-          t = clamp(t, 0.0, 1.0);
-          vec3 c1 = vec3(0.0, 0.0, 0.0);
-          vec3 c2 = vec3(0.8, 0.1, 0.3); // Deep red
-          vec3 c3 = vec3(1.0, 0.6, 0.1); // Orange
-          vec3 c4 = vec3(1.0, 1.0, 0.9); // White
-          
-          if (t < 0.33) base = mix(c1, c2, t * 3.0);
-          else if (t < 0.66) base = mix(c2, c3, (t - 0.33) * 3.0);
-          else base = mix(c3, c4, (t - 0.66) * 3.0);
-      }
-      else {
-          vec3 colPos = vec3(0.0, 1.0, 0.6); // Neon Mint
-          vec3 colNeg = vec3(0.8, 0.0, 1.0); // Neon Purple
-          base = mix(colNeg, colPos, step(0.0, val));
-      }
-      
-      return base;
-  }
-
   void main() {
     vec3 rayDir = normalize(vOrigin - uCameraPos);
     vec2 bounds = hitBox(uCameraPos, rayDir);
@@ -75,38 +78,40 @@ export const FRAGMENT_SHADER = `
     float tEnd = bounds.y;
 
     vec3 p = uCameraPos + tStart * rayDir;
-    vec3 marchStep = rayDir * 0.015;
-    
+    vec3 marchStep = rayDir * STEP_SIZE;
+
     vec4 colorAcc = vec4(0.0);
     float dist = tStart;
     
-    for(int i = 0; i < 150; i++) {
+    for(int i = 0; i < MAX_STEPS; i++) {
       if (dist > tEnd || colorAcc.a >= 0.98) break;
-      
+
       if (p.x > uSliceX || p.y > uSliceY || p.z > uSliceZ) {
           p += marchStep;
-          dist += 0.015;
+          dist += STEP_SIZE;
           continue;
       }
 
       vec3 texCoord = p * 0.5 + 0.5;
+
       float val = texture(uVolume, texCoord).r;
-      float density = val * val; 
-      
+      float density = val * val;
+
       if (density > 0.0001) {
         float alpha = 0.0;
         vec3 emission = vec3(0.0);
-        vec3 baseColor = getEmissionColor(val, density);
-        
+
+        vec3 baseColor = getOrbitalColor(val);
+
         if (uShowCloud > 0.5) {
-          alpha += density * uIntensity * 0.8; 
+          alpha += density * uIntensity * 0.8;
           emission += baseColor * uGlow * (0.8 + density * 2.0);
         }
 
         if (uIsoLines > 0.5) {
-            float contour = sin(density * uContourFreq); 
+            float contour = sin(density * uContourFreq);
             float line = smoothstep(0.9, 1.0, contour);
-            emission += baseColor * line * 2.0; 
+            emission += baseColor * line * 2.0;
             alpha += line * 0.3;
         }
 
@@ -117,11 +122,36 @@ export const FRAGMENT_SHADER = `
       }
 
       p += marchStep;
-      dist += 0.015;
+      dist += STEP_SIZE;
     }
 
     if (colorAcc.a < 0.01) discard;
 
     gl_FragColor = colorAcc;
+  }
+`;
+
+export const CSM_VERTEX_CHUNK = `
+  varying vec3 vObjectPos;
+  void main() {
+    vObjectPos = position;
+  }
+`;
+
+export const CSM_FRAGMENT_CHUNK = `
+  uniform sampler3D uVolume;
+  uniform int uColorTheme;
+  uniform vec3 uColorPos;
+  uniform vec3 uColorNeg;
+  uniform float uMeshOffset;
+  varying vec3 vObjectPos;
+
+  ${COMMON_COLOR_FN}
+
+  void main() {
+    vec3 uvw = (vObjectPos + vec3(uMeshOffset)) * 0.5 + 0.5;
+    float rawVal = texture(uVolume, uvw).r;
+
+    csm_DiffuseColor.rgb = getOrbitalColor(rawVal);
   }
 `;

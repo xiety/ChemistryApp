@@ -1,5 +1,7 @@
 import { Injectable } from '@angular/core';
 
+export const ORBITAL_LABELS = ['s', 'p', 'd', 'f', 'g', 'h', 'i'];
+
 export interface OrbitalPreset {
   n: number;
   l: number;
@@ -25,16 +27,9 @@ export class OrbitalMathService {
 
   getOrbitalGroups(): OrbitalGroup[] {
     const groups: OrbitalGroup[] = [];
-    const lNames = ['s', 'p', 'd', 'f'];
 
     const maxLPerShell: Record<number, number> = {
-      1: 0,
-      2: 1,
-      3: 2,
-      4: 3,
-      5: 3,
-      6: 2,
-      7: 1
+      1: 0, 2: 1, 3: 2, 4: 3, 5: 3, 6: 2, 7: 1
     };
 
     for (let n = 1; n <= 7; n++) {
@@ -43,7 +38,7 @@ export class OrbitalMathService {
 
       for (let l = 0; l <= maxL; l++) {
         for (let m = 0; m <= l; m++) {
-          const lChar = lNames[l] || '?';
+          const lChar = ORBITAL_LABELS[l] || '?';
           let name = `${n}${lChar}`;
           if (l > 0) name += ` ${m}`;
           group.orbitals.push({ n, l, m, name });
@@ -55,24 +50,21 @@ export class OrbitalMathService {
   }
 
   async generateVolumeData(n: number, l: number, m: number, size: number): Promise<Float32Array> {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const data = this.computeBuffer(n, l, m, size);
-        resolve(data);
-      }, 50);
-    });
+    const rawData = this.computeBuffer(n, l, m, size);
+    return this.applyGaussianSmooth(rawData, size, 2);
   }
 
   private computeBuffer(n: number, l: number, m: number, size: number): Float32Array {
     const totalSize = size * size * size;
     const data = new Float32Array(totalSize);
 
-    const baseScale = 12.0 + (n * n * 3.2);
+    const baseScale = 12.0 + (n * n * 4.0);
     const compaction = 1.0 - (l * 0.04);
     const boxScale = baseScale * Math.max(0.6, compaction);
+
     const invSizeMinus1 = 1.0 / (size - 1);
 
-    let maxAbsVal = 0;
+    const scaleFactor = 4.0 * Math.pow(n, 2.5);
 
     for (let i = 0; i < totalSize; i++) {
       const zIdx = (i / (size * size)) | 0;
@@ -89,19 +81,58 @@ export class OrbitalMathService {
       const pz = w * boxScale;
 
       const val = this.psi(n, l, m, px, py, pz);
-      data[i] = val;
 
-      const absVal = Math.abs(val);
-      if (absVal > maxAbsVal) maxAbsVal = absVal;
-    }
-
-    if (maxAbsVal < 1e-12) maxAbsVal = 1;
-
-    for (let i = 0; i < totalSize; i++) {
-      data[i] = data[i] / maxAbsVal;
+      data[i] = val * scaleFactor;
     }
 
     return data;
+  }
+
+  private applyGaussianSmooth(input: Float32Array, size: number, passes: number): Float32Array {
+    let current = input;
+    const layerSize = size * size;
+
+    const wMid = 0.5;
+    const wSide = 0.25;
+
+    for (let p = 0; p < passes; p++) {
+      const next = new Float32Array(current.length);
+
+      for (let z = 0; z < size; z++) {
+        for (let y = 0; y < size; y++) {
+          for (let x = 1; x < size - 1; x++) {
+            const i = z * layerSize + y * size + x;
+            next[i] = current[i] * wMid + (current[i - 1] + current[i + 1]) * wSide;
+          }
+        }
+      }
+
+      current.set(next);
+
+      for (let z = 0; z < size; z++) {
+        for (let y = 1; y < size - 1; y++) {
+          for (let x = 0; x < size; x++) {
+            const i = z * layerSize + y * size + x;
+            next[i] = current[i] * wMid + (current[i - size] + current[i + size]) * wSide;
+          }
+        }
+      }
+
+      current.set(next);
+
+      for (let z = 1; z < size - 1; z++) {
+        for (let y = 0; y < size; y++) {
+          for (let x = 0; x < size; x++) {
+            const i = z * layerSize + y * size + x;
+            next[i] = current[i] * wMid + (current[i - layerSize] + current[i + layerSize]) * wSide;
+          }
+        }
+      }
+
+      current = next;
+    }
+
+    return current;
   }
 
   private psi(n: number, l: number, m: number, x: number, y: number, z: number): number {
@@ -110,7 +141,7 @@ export class OrbitalMathService {
 
     const r = Math.sqrt(r2);
 
-    if (r > 7.0 * n * n + 30) return 0;
+    if (r > 7.0 * n * n + 50) return 0;
 
     const theta = Math.acos(z / r);
     const phi = Math.atan2(y, x);

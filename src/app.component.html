@@ -4,8 +4,8 @@
     <div class="viewer-background">
       <app-orbital-viewer [n]="n()" [l]="l()" [m]="m()" [resolution]="resolution()" [opacity]="opacity()"
         [glow]="glow()" [colorTheme]="colorTheme()" [sliceX]="sliceX()" [sliceY]="sliceY()" [sliceZ]="sliceZ()"
-        [showIsoLines]="showIsoLines()" [showCloud]="showCloud()" [contourDensity]="contourDensity()"
-        [rotationSpeed]="rotationSpeed()">
+        [showIsoLines]="showIsoLines()" [showCloud]="showCloud()" [showMesh]="showMesh()"
+        [contourDensity]="contourDensity()" [rotationSpeed]="rotationSpeed()" [threshold]="surfaceThreshold()">
       </app-orbital-viewer>
     </div>
   </div>
@@ -77,38 +77,59 @@
               <button (click)="colorTheme.set(0)" class="btn-segment" [class.active]="colorTheme() === 0"
                 [class.inactive]="colorTheme() !== 0">Standard</button>
               <button (click)="colorTheme.set(1)" class="btn-segment" [class.active]="colorTheme() === 1"
-                [class.inactive]="colorTheme() !== 1">Heatmap</button>
+                [class.inactive]="colorTheme() !== 1">Cyber</button>
               <button (click)="colorTheme.set(2)" class="btn-segment" [class.active]="colorTheme() === 2"
-                [class.inactive]="colorTheme() !== 2">Cyber</button>
+                [class.inactive]="colorTheme() !== 2">Heatmap</button>
             </div>
           </div>
 
-          <div class="grid-2">
-            <button (click)="toggleCloud()" class="btn-tile" [class.active]="showCloud()"
-              [class.inactive]="!showCloud()">
-              <span class="dot" [class.on]="showCloud()" [class.off]="!showCloud()"></span>
-              Electron Cloud
-            </button>
+          <div class="stack-small">
+            <div class="grid-2" style="grid-template-columns: 1fr 1fr 1fr;">
+              <button (click)="toggleCloud()" class="btn-tile" [class.active]="showCloud()"
+                [class.inactive]="!showCloud()">
+                <span class="dot" [class.on]="showCloud()" [class.off]="!showCloud()"></span>
+                Cloud
+              </button>
 
-            <button (click)="toggleIsoLines()" class="btn-tile" [class.active]="showIsoLines()"
-              [class.inactive]="!showIsoLines()">
-              <span class="dot" [class.on]="showIsoLines()" [class.off]="!showIsoLines()"></span>
-              Iso-Contours
-            </button>
+              <button (click)="toggleIsoLines()" class="btn-tile" [class.active]="showIsoLines()"
+                [class.inactive]="!showIsoLines()">
+                <span class="dot" [class.on]="showIsoLines()" [class.off]="!showIsoLines()"></span>
+                Lines
+              </button>
+
+              <button (click)="toggleMesh()" class="btn-tile" [class.active]="showMesh()"
+                [class.inactive]="!showMesh()">
+                <span class="dot" [class.on]="showMesh()" [class.off]="!showMesh()"></span>
+                Mesh
+              </button>
+            </div>
           </div>
 
           <div class="stack-medium">
+            @if(showMesh()) {
+            <div class="stack-medium">
+              <app-slider label="Mesh Threshold" [value]="surfaceThreshold()" [min]="0.01" [max]="0.6" [step]="0.01"
+                [displayValue]="surfaceThreshold().toFixed(2)" (valueChange)="surfaceThreshold.set($event)" />
+            </div>
+            <div class="divider"></div>
+            }
+
             <app-slider label="Opacity" [value]="opacity()" [min]="0.05" [max]="1.0" [step]="0.05"
               [displayValue]="(opacity()*100).toFixed(0)+'%'" (valueChange)="opacity.set($event)" />
+
+            @if(showCloud()) {
             <app-slider label="Glow Intensity" [value]="glow()" [min]="0.5" [max]="3.0" [step]="0.1"
               [displayValue]="glow()" (valueChange)="glow.set($event)" />
+            }
+
+            @if(showIsoLines()) {
             <app-slider label="Contour Frequency" [value]="contourDensity()" [min]="20" [max]="200" [step]="10"
               [displayValue]="contourDensity()" (valueChange)="contourDensity.set($event)" />
-          </div>
+            }
 
-          <div class="divider"></div>
 
-          <div class="stack-medium">
+            <div class="divider"></div>
+
             <app-slider label="Cut X" [value]="sliceX()" [min]="-1.0" [max]="1.0" [step]="0.05"
               [displayValue]="sliceX()" (valueChange)="sliceX.set($event)" />
             <app-slider label="Cut Y" [value]="sliceY()" [min]="-1.0" [max]="1.0" [step]="0.05"
@@ -122,9 +143,8 @@
           <div class="stack-medium">
             <app-slider label="Auto Rotation" [value]="rotationSpeed()" [min]="-2.0" [max]="2.0" [step]="0.1"
               [displayValue]="rotationSpeed()" (valueChange)="rotationSpeed.set($event)" />
-            <app-slider label="Grid Resolution" subLabel="High values affect performance" [value]="resolution()"
-              [min]="32" [max]="96" [step]="8" [displayValue]="resolution() + '³'"
-              (valueChange)="resolution.set($event)" />
+            <app-slider label="Grid Resolution" [value]="resolution()" [min]="64" [max]="128" [step]="8"
+              [displayValue]="resolution() + '³'" (valueChange)="resolution.set($event)" />
           </div>
 
         </div>
