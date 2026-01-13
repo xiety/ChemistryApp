@@ -2,8 +2,8 @@ import { Injectable, OnDestroy } from '@angular/core';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
-import Stats from 'three/addons/libs/stats.module.js';
 import CustomShaderMaterial from 'three-custom-shader-material/vanilla';
+import Stats from 'three/addons/libs/stats.module.js';
 
 import {
   VERTEX_SHADER,
@@ -12,11 +12,21 @@ import {
   CSM_FRAGMENT_CHUNK
 } from '../shaders/orbital.shaders';
 
+THREE.ColorManagement.enabled = false;
+
+const THEME_STD_POS = new THREE.Color(0x3399ff);
+const THEME_STD_NEG = new THREE.Color(0xff3333);
+const THEME_CYBER_POS = new THREE.Color(0x00ff99);
+const THEME_CYBER_NEG = new THREE.Color(0xcc00ff);
+
 export interface RenderSettings {
-  opacity: number;
+  n: number;
+  l: number;
+  m: number;
   glow: number;
   colorTheme: number;
   showIsoLines: boolean;
+  showSurface: boolean;
   showCloud: boolean;
   showMesh: boolean;
   showStats: boolean;
@@ -28,13 +38,16 @@ export interface RenderSettings {
   threshold: number;
   dithering: number;
   resolution: number;
+  opacity: number;
+  rayStepCount: number;
 }
 
 export const DEFAULT_SETTINGS: RenderSettings = {
-  opacity: 0.65,
+  n: 2, l: 1, m: 0,
   glow: 2.0,
   colorTheme: 0,
   showIsoLines: false,
+  showSurface: false,
   showCloud: true,
   showMesh: false,
   showStats: true,
@@ -45,17 +58,10 @@ export const DEFAULT_SETTINGS: RenderSettings = {
   sliceZ: 1.0,
   threshold: 0.15,
   dithering: 0.0,
-  resolution: 96
+  resolution: 96,
+  opacity: 1.0,
+  rayStepCount: 128
 };
-
-THREE.ColorManagement.enabled = false;
-
-const MAX_POLY_COUNT = 500000;
-
-const THEME_STD_POS = new THREE.Color(0x3399ff);
-const THEME_STD_NEG = new THREE.Color(0xff3333);
-const THEME_CYBER_POS = new THREE.Color(0x00ff99);
-const THEME_CYBER_NEG = new THREE.Color(0xcc00ff);
 
 @Injectable({
   providedIn: 'root'
@@ -69,15 +75,11 @@ export class OrbitalRenderingService implements OnDestroy {
   private stats!: Stats;
 
   private volMaterial!: THREE.ShaderMaterial;
-  private volumeTexture!: THREE.Data3DTexture;
   private volMesh!: THREE.Mesh;
 
   private marchingCubes!: MarchingCubes;
-  private meshMaterial!: CustomShaderMaterial<typeof THREE.MeshStandardMaterial>;
-
-  private planeX = new THREE.Plane(new THREE.Vector3(-1, 0, 0), 1.0);
-  private planeY = new THREE.Plane(new THREE.Vector3(0, -1, 0), 1.0);
-  private planeZ = new THREE.Plane(new THREE.Vector3(0, 0, -1), 1.0);
+  private meshMaterial!: CustomShaderMaterial<typeof THREE.MeshPhysicalMaterial>;
+  private volumeTexture!: THREE.Data3DTexture;
 
   private animationFrameId: number = 0;
   private isInitialized = false;
@@ -99,25 +101,20 @@ export class OrbitalRenderingService implements OnDestroy {
     this.camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 100);
     this.camera.position.set(0, 0, 3);
 
-    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
     this.renderer.setClearColor(0x000000, 1);
-    this.renderer.localClippingEnabled = true;
-
     this.renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
-    this.renderer.toneMapping = THREE.NoToneMapping;
-
     container.appendChild(this.renderer.domElement);
 
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
     this.controls.minDistance = 2;
-    this.controls.maxDistance = 20;
+    this.controls.maxDistance = 30;
     this.controls.autoRotate = true;
-    this.controls.enablePan = false;
 
     this.setupLights();
-    this.setupVolumetricBox();
+    this.setupProceduralBox();
     this.setupMarchingCubes();
 
     this.isInitialized = true;
@@ -139,35 +136,33 @@ export class OrbitalRenderingService implements OnDestroy {
     this.scene.add(pointLight);
   }
 
-  private setupVolumetricBox() {
+  private setupProceduralBox() {
     const geometry = new THREE.BoxGeometry(2, 2, 2);
-    const size = DEFAULT_SETTINGS.resolution;
-    const initialData = new Float32Array(size * size * size);
-
-    this.volumeTexture = new THREE.Data3DTexture(initialData, size, size, size);
-    this.volumeTexture.format = THREE.RedFormat;
-    this.volumeTexture.type = THREE.FloatType;
-    this.volumeTexture.minFilter = THREE.LinearFilter;
-    this.volumeTexture.magFilter = THREE.LinearFilter;
-    this.volumeTexture.unpackAlignment = 1;
-    this.volumeTexture.needsUpdate = true;
 
     this.volMaterial = new THREE.ShaderMaterial({
       uniforms: {
-        uVolume: { value: this.volumeTexture },
         uCameraPos: { value: this.camera.position },
-        uIntensity: { value: DEFAULT_SETTINGS.opacity * 10.0 },
         uGlow: { value: DEFAULT_SETTINGS.glow },
         uColorTheme: { value: DEFAULT_SETTINGS.colorTheme },
-        uColorPos: { value: new THREE.Color().copy(THEME_STD_POS) },
-        uColorNeg: { value: new THREE.Color().copy(THEME_STD_NEG) },
-        uIsoLines: { value: DEFAULT_SETTINGS.showIsoLines ? 1.0 : 0.0 },
-        uShowCloud: { value: DEFAULT_SETTINGS.showCloud ? 1.0 : 0.0 },
+
+        uColorPos: { value: THEME_STD_POS.clone() },
+        uColorNeg: { value: THEME_STD_NEG.clone() },
+
+        uIsoLines: { value: 0.0 },
+        uShowCloud: { value: 1.0 },
+        uShowSurface: { value: 0.0 },
+
         uContourFreq: { value: DEFAULT_SETTINGS.contourDensity },
         uSliceX: { value: DEFAULT_SETTINGS.sliceX },
         uSliceY: { value: DEFAULT_SETTINGS.sliceY },
         uSliceZ: { value: DEFAULT_SETTINGS.sliceZ },
-        uDithering: { value: DEFAULT_SETTINGS.dithering }
+        uDithering: { value: DEFAULT_SETTINGS.dithering },
+        uThreshold: { value: DEFAULT_SETTINGS.threshold },
+        uOpacity: { value: DEFAULT_SETTINGS.opacity },
+        uRaySteps: { value: DEFAULT_SETTINGS.rayStepCount },
+        uN: { value: 2 },
+        uL: { value: 1 },
+        uM: { value: 0 }
       },
       vertexShader: VERTEX_SHADER,
       fragmentShader: FRAGMENT_SHADER,
@@ -182,30 +177,45 @@ export class OrbitalRenderingService implements OnDestroy {
   }
 
   private setupMarchingCubes() {
-    this.meshMaterial = new CustomShaderMaterial<typeof THREE.MeshStandardMaterial>({
-      baseMaterial: THREE.MeshStandardMaterial,
+    const size = DEFAULT_SETTINGS.resolution;
+    const data = new Float32Array(size * size * size);
+    this.volumeTexture = new THREE.Data3DTexture(data, size, size, size);
+    this.volumeTexture.format = THREE.RedFormat;
+    this.volumeTexture.type = THREE.FloatType;
+    this.volumeTexture.minFilter = THREE.LinearFilter;
+    this.volumeTexture.magFilter = THREE.LinearFilter;
+    this.volumeTexture.needsUpdate = true;
+
+    this.meshMaterial = new CustomShaderMaterial<typeof THREE.MeshPhysicalMaterial>({
+      baseMaterial: THREE.MeshPhysicalMaterial,
       vertexShader: CSM_VERTEX_CHUNK,
       fragmentShader: CSM_FRAGMENT_CHUNK,
       uniforms: {
-        uVolume: { value: this.volumeTexture },
         uColorTheme: { value: 0 },
-        uColorPos: { value: new THREE.Color().copy(THEME_STD_POS) },
-        uColorNeg: { value: new THREE.Color().copy(THEME_STD_NEG) },
-        uMeshOffset: { value: 0.0 }
+        uColorPos: { value: THEME_STD_POS.clone() },
+        uColorNeg: { value: THEME_STD_NEG.clone() },
+        uVolume: { value: this.volumeTexture },
+        uTexOffset: { value: 0.0 },
+        uSliceX: { value: 1.0 },
+        uSliceY: { value: 1.0 },
+        uSliceZ: { value: 1.0 }
       },
-      roughness: 0.2,
       metalness: 0.0,
+      roughness: 1.0,
+      transmission: 0.0,
       transparent: true,
-      opacity: 0.9,
+      depthWrite: true,
+      opacity: DEFAULT_SETTINGS.opacity,
       side: THREE.DoubleSide,
-      clippingPlanes: [this.planeX, this.planeY, this.planeZ],
-      clipShadows: true
+      flatShading: false
     });
 
-    this.marchingCubes = new MarchingCubes(DEFAULT_SETTINGS.resolution, this.meshMaterial, true, false, MAX_POLY_COUNT);
-    this.marchingCubes.scale.set(1.0, 1.0, 1.0);
+    this.marchingCubes = new MarchingCubes(size, this.meshMaterial, true, true, 200000);
+    this.marchingCubes.enableUvs = false;
+    this.marchingCubes.enableColors = false;
     this.marchingCubes.visible = false;
     this.marchingCubes.renderOrder = 1;
+
     this.scene.add(this.marchingCubes);
   }
 
@@ -219,75 +229,82 @@ export class OrbitalRenderingService implements OnDestroy {
       this.volumeTexture.type = THREE.FloatType;
       this.volumeTexture.minFilter = THREE.LinearFilter;
       this.volumeTexture.magFilter = THREE.LinearFilter;
-      this.volumeTexture.unpackAlignment = 1;
-      this.volumeTexture.needsUpdate = true;
-      if (this.volMaterial) this.volMaterial.uniforms['uVolume'].value = this.volumeTexture;
-      if (this.meshMaterial && this.meshMaterial.uniforms) this.meshMaterial.uniforms['uVolume'].value = this.volumeTexture;
+
+      if (this.meshMaterial.uniforms) {
+        this.meshMaterial.uniforms['uVolume'].value = this.volumeTexture;
+      }
     } else {
       this.volumeTexture.image.data = data;
-      this.volumeTexture.needsUpdate = true;
+    }
+    this.volumeTexture.needsUpdate = true;
+
+    this.marchingCubes.init(res);
+
+    const meshOffset = 1.0 / res;
+    this.marchingCubes.position.set(meshOffset, meshOffset, meshOffset);
+
+    const texOffset = 0.5 / res;
+
+    if (this.meshMaterial.uniforms) {
+      this.meshMaterial.uniforms['uTexOffset'].value = texOffset;
     }
 
-    if (this.marchingCubes) {
-      this.marchingCubes.init(res);
-      const offset = 1.0 / res;
-      this.marchingCubes.position.set(offset, offset, offset);
-
-      if (this.meshMaterial && this.meshMaterial.uniforms) {
-        this.meshMaterial.uniforms['uMeshOffset'].value = offset;
-      }
-
-      const field = this.marchingCubes.field;
-      for (let i = 0; i < data.length; i++) {
-        field[i] = Math.abs(data[i]);
-      }
-      this.marchingCubes.isolation = threshold;
-      this.marchingCubes.update();
+    const field = this.marchingCubes.field;
+    for (let i = 0; i < data.length; i++) {
+      field[i] = Math.abs(data[i]);
     }
+
+    this.marchingCubes.isolation = threshold;
+    this.marchingCubes.update();
   }
 
   updateSettings(s: RenderSettings) {
-    if (!this.isInitialized) return;
+    if (!this.isInitialized || !this.volMaterial) return;
 
-    const isCyber = s.colorTheme === 1;
-    const cPos = isCyber ? THEME_CYBER_POS : THEME_STD_POS;
-    const cNeg = isCyber ? THEME_CYBER_NEG : THEME_STD_NEG;
+    const u = this.volMaterial.uniforms;
+    u['uN'].value = s.n;
+    u['uL'].value = s.l;
+    u['uM'].value = s.m;
+    u['uGlow'].value = s.glow;
+    u['uColorTheme'].value = s.colorTheme;
 
-    const updateMaterial = (mat: THREE.ShaderMaterial | CustomShaderMaterial<any>) => {
-      if (mat && mat.uniforms) {
-        mat.uniforms['uColorTheme'].value = s.colorTheme;
-        mat.uniforms['uColorPos'].value.copy(cPos);
-        mat.uniforms['uColorNeg'].value.copy(cNeg);
-      }
-    };
+    const colorPos = (s.colorTheme === 1) ? THEME_CYBER_POS : THEME_STD_POS;
+    const colorNeg = (s.colorTheme === 1) ? THEME_CYBER_NEG : THEME_STD_NEG;
 
-    if (this.volMaterial) {
-      updateMaterial(this.volMaterial);
-      this.volMaterial.uniforms['uIntensity'].value = s.opacity * 10.0;
-      this.volMaterial.uniforms['uGlow'].value = s.glow;
-      this.volMaterial.uniforms['uIsoLines'].value = s.showIsoLines ? 1.0 : 0.0;
-      this.volMaterial.uniforms['uShowCloud'].value = s.showCloud ? 1.0 : 0.0;
-      this.volMaterial.uniforms['uContourFreq'].value = s.contourDensity;
-      this.volMaterial.uniforms['uSliceX'].value = s.sliceX;
-      this.volMaterial.uniforms['uSliceY'].value = s.sliceY;
-      this.volMaterial.uniforms['uSliceZ'].value = s.sliceZ;
-      this.volMaterial.uniforms['uDithering'].value = s.dithering;
-    }
+    u['uColorPos'].value.copy(colorPos);
+    u['uColorNeg'].value.copy(colorNeg);
+    u['uIsoLines'].value = s.showIsoLines ? 1.0 : 0.0;
+    u['uShowCloud'].value = s.showCloud ? 1.0 : 0.0;
+    u['uShowSurface'].value = s.showSurface ? 1.0 : 0.0;
 
-    this.planeX.constant = s.sliceX;
-    this.planeY.constant = s.sliceY;
-    this.planeZ.constant = s.sliceZ;
+    u['uContourFreq'].value = s.contourDensity;
+    u['uSliceX'].value = s.sliceX;
+    u['uSliceY'].value = s.sliceY;
+    u['uSliceZ'].value = s.sliceZ;
+    u['uDithering'].value = s.dithering;
+    u['uThreshold'].value = s.threshold;
+    u['uOpacity'].value = s.opacity;
+    u['uRaySteps'].value = s.rayStepCount;
 
-    if (this.meshMaterial) {
-      updateMaterial(this.meshMaterial);
-      this.meshMaterial.opacity = Math.max(0.1, s.opacity);
-      this.meshMaterial.transparent = s.opacity < 0.95;
-    }
+    const showVol = s.showCloud || s.showIsoLines || s.showSurface;
+    this.volMesh.visible = showVol;
 
     if (this.marchingCubes) {
+      this.marchingCubes.visible = s.showMesh;
+      this.meshMaterial.opacity = s.opacity;
+
+      if (this.meshMaterial.uniforms) {
+        this.meshMaterial.uniforms['uColorTheme'].value = s.colorTheme;
+        this.meshMaterial.uniforms['uColorPos'].value.copy(colorPos);
+        this.meshMaterial.uniforms['uColorNeg'].value.copy(colorNeg);
+        this.meshMaterial.uniforms['uSliceX'].value = s.sliceX;
+        this.meshMaterial.uniforms['uSliceY'].value = s.sliceY;
+        this.meshMaterial.uniforms['uSliceZ'].value = s.sliceZ;
+      }
+
       if (Math.abs(this.marchingCubes.isolation - s.threshold) > 0.001) {
         this.marchingCubes.isolation = s.threshold;
-        this.marchingCubes.update();
+        if (s.showMesh) this.marchingCubes.update();
       }
     }
 
@@ -296,13 +313,6 @@ export class OrbitalRenderingService implements OnDestroy {
       this.controls.autoRotateSpeed = s.rotationSpeed * 5.0;
     } else {
       this.controls.autoRotate = false;
-    }
-
-    const isVolVisible = s.showCloud || s.showIsoLines;
-    if (this.volMesh) this.volMesh.visible = isVolVisible;
-
-    if (this.marchingCubes) {
-      this.marchingCubes.visible = s.showMesh;
     }
 
     if (this.stats) {
@@ -326,7 +336,7 @@ export class OrbitalRenderingService implements OnDestroy {
     if (this.stats) this.stats.update();
     if (this.controls) this.controls.update();
 
-    if (this.volMaterial && this.volMesh.visible) {
+    if (this.volMaterial) {
       this.volMaterial.uniforms['uCameraPos'].value.copy(this.camera.position);
     }
 
@@ -337,8 +347,8 @@ export class OrbitalRenderingService implements OnDestroy {
     cancelAnimationFrame(this.animationFrameId);
     if (this.renderer) this.renderer.dispose();
     if (this.volMaterial) this.volMaterial.dispose();
-    if (this.volumeTexture) this.volumeTexture.dispose();
     if (this.meshMaterial) this.meshMaterial.dispose();
+    if (this.volumeTexture) this.volumeTexture.dispose();
     if (this.stats) this.stats.dom.remove();
   }
 }

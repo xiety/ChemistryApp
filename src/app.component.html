@@ -2,11 +2,12 @@
 
   <div class="viewer-pane">
     <div class="viewer-background">
-      <app-orbital-viewer [n]="n()" [l]="l()" [m]="m()" [resolution]="resolution()" [opacity]="opacity()"
-        [glow]="glow()" [colorTheme]="colorTheme()" [sliceX]="sliceX()" [sliceY]="sliceY()" [sliceZ]="sliceZ()"
-        [showIsoLines]="showIsoLines()" [showCloud]="showCloud()" [showMesh]="showMesh()" [showStats]="showStats()"
-        [contourDensity]="contourDensity()" [rotationSpeed]="autoRotate() ? rotationSpeed() : 0"
-        [threshold]="surfaceThreshold()" [dithering]="dithering()">
+      <app-orbital-viewer [n]="n()" [l]="l()" [m]="m()" [resolution]="resolution()" [glow]="glow()"
+        [colorTheme]="colorTheme()" [sliceX]="sliceX()" [sliceY]="sliceY()" [sliceZ]="sliceZ()"
+        [showIsoLines]="showIsoLines()" [showSurface]="showSurface()" [showCloud]="showCloud()" [showMesh]="showMesh()"
+        [showStats]="showStats()" [contourDensity]="contourDensity()"
+        [rotationSpeed]="autoRotate() ? rotationSpeed() : 0" [threshold]="surfaceThreshold()" [dithering]="dithering()"
+        [opacity]="opacity()" [rayStepCount]="rayStepCount()">
       </app-orbital-viewer>
     </div>
 
@@ -88,14 +89,14 @@
           <div class="divider"></div>
 
           <div class="stack-medium">
-            <app-slider label="Principal (n)" [value]="n()" [min]="1" [max]="7" [displayValue]="n()"
-              (valueChange)="n.set($event)" [valueFormatter]="formatInt" />
+            <app-slider label="Principal (n)" [value]="n()" [min]="1" [max]="7" (valueChange)="n.set($event)"
+              [valueFormatter]="formatInt" />
 
-            <app-slider label="Azimuthal (l)" [value]="l()" [min]="0" [max]="n() - 1" [displayValue]="formatL(l())"
-              (valueChange)="l.set($event)" [valueFormatter]="formatL" />
+            <app-slider label="Azimuthal (l)" [value]="l()" [min]="0" [max]="n() - 1" (valueChange)="l.set($event)"
+              [valueFormatter]="formatL" />
 
-            <app-slider label="Magnetic (m)" [value]="m()" [min]="0" [max]="l()" [displayValue]="m()"
-              (valueChange)="m.set($event)" [valueFormatter]="formatInt" />
+            <app-slider label="Magnetic (m)" [value]="m()" [min]="0" [max]="l()" (valueChange)="m.set($event)"
+              [valueFormatter]="formatInt" />
           </div>
 
         </div>
@@ -114,11 +115,17 @@
                 [class.inactive]="colorTheme() !== 2">Heatmap</button>
             </div>
 
-            <div class="grid-3">
+            <div class="grid-2">
               <button (click)="toggleCloud()" class="btn-tile" [class.active]="showCloud()"
                 [class.inactive]="!showCloud()">
                 <span class="dot" [class.on]="showCloud()" [class.off]="!showCloud()"></span>
                 Cloud
+              </button>
+
+              <button (click)="toggleSurface()" class="btn-tile" [class.active]="showSurface()"
+                [class.inactive]="!showSurface()">
+                <span class="dot" [class.on]="showSurface()" [class.off]="!showSurface()"></span>
+                Surface (GPU)
               </button>
 
               <button (click)="toggleIsoLines()" class="btn-tile" [class.active]="showIsoLines()"
@@ -130,7 +137,7 @@
               <button (click)="toggleMesh()" class="btn-tile" [class.active]="showMesh()"
                 [class.inactive]="!showMesh()">
                 <span class="dot" [class.on]="showMesh()" [class.off]="!showMesh()"></span>
-                Mesh
+                Mesh (CPU)
               </button>
             </div>
           </div>
@@ -138,25 +145,28 @@
           <div class="divider"></div>
 
           <div class="stack-small">
-            @if(showMesh()) {
-            <app-slider label="Mesh Threshold" [value]="surfaceThreshold()" [min]="0" [max]="0.6" [step]="0.01"
-              [displayValue]="surfaceThreshold().toFixed(2)" (valueChange)="surfaceThreshold.set($event)"
-              [valueFormatter]="formatFloat2" />
-            }
+            <app-slider label="Ray Steps (Quality)" [value]="rayStepCount()" [min]="32" [max]="256" [step]="16"
+              (valueChange)="rayStepCount.set($event)" [valueFormatter]="formatInt" />
 
-            <app-slider label="Opacity" [value]="opacity()" [min]="0" [max]="1.0" [step]="0.05"
-              [displayValue]="(opacity()*100).toFixed(0)+'%'" (valueChange)="opacity.set($event)"
-              [valueFormatter]="formatPercent" />
+            <app-slider label="Surface Threshold" [value]="surfaceThreshold()" [min]="0.01" [max]="1.0" [step]="0.01"
+              (valueChange)="surfaceThreshold.set($event)" [valueFormatter]="formatFloat2" />
+
+            <app-slider label="Contour Frequency" [value]="contourDensity()" [min]="20" [max]="200" [step]="10"
+              (valueChange)="contourDensity.set($event)" [valueFormatter]="formatInt" />
 
             @if(showCloud()) {
             <app-slider label="Glow Intensity" [value]="glow()" [min]="0.5" [max]="3.0" [step]="0.1"
-              [displayValue]="glow()" (valueChange)="glow.set($event)" [valueFormatter]="formatFloat1" />
+              (valueChange)="glow.set($event)" [valueFormatter]="formatFloat1" />
             }
 
-            @if(showIsoLines()) {
-            <app-slider label="Contour Frequency" [value]="contourDensity()" [min]="20" [max]="200" [step]="10"
-              [displayValue]="contourDensity()" (valueChange)="contourDensity.set($event)"
-              [valueFormatter]="formatInt" />
+            @if(showMesh()) {
+            <app-slider label="Grid Resolution" [value]="resolution()" [min]="64" [max]="128" [step]="8"
+              (valueChange)="resolution.set($event)" [valueFormatter]="formatResolution" />
+            }
+
+            @if(showMesh() || showSurface()) {
+            <app-slider label="Opacity" [value]="opacity()" [min]="0.1" [max]="1.0" [step]="0.05"
+              (valueChange)="opacity.set($event)" [valueFormatter]="formatFloat2" />
             }
           </div>
 
@@ -164,11 +174,11 @@
 
           <div class="stack-small">
             <app-slider label="Cut X" [value]="sliceX()" [min]="-1.0" [max]="1.0" [step]="0.05"
-              [displayValue]="sliceX()" (valueChange)="sliceX.set($event)" [valueFormatter]="formatFloat2" />
+              (valueChange)="sliceX.set($event)" [valueFormatter]="formatFloat2" />
             <app-slider label="Cut Y" [value]="sliceY()" [min]="-1.0" [max]="1.0" [step]="0.05"
-              [displayValue]="sliceY()" (valueChange)="sliceY.set($event)" [valueFormatter]="formatFloat2" />
+              (valueChange)="sliceY.set($event)" [valueFormatter]="formatFloat2" />
             <app-slider label="Cut Z" [value]="sliceZ()" [min]="-1.0" [max]="1.0" [step]="0.05"
-              [displayValue]="sliceZ()" (valueChange)="sliceZ.set($event)" [valueFormatter]="formatFloat2" />
+              (valueChange)="sliceZ.set($event)" [valueFormatter]="formatFloat2" />
           </div>
 
           <div class="divider"></div>
@@ -177,16 +187,10 @@
             <app-switch label="Rotate" [checked]="autoRotate()" (checkedChange)="autoRotate.set($event)" />
 
             <app-slider label="Rotation Speed" [value]="rotationSpeed()" [min]="-2.0" [max]="2.0" [step]="0.1"
-              [displayValue]="rotationSpeed()" (valueChange)="rotationSpeed.set($event)" [markers]="[0]"
-              [valueFormatter]="formatFloat1" />
-
-            <app-slider label="Grid Resolution" [value]="resolution()" [min]="64" [max]="128" [step]="8"
-              [displayValue]="resolution() + '³'" (valueChange)="resolution.set($event)"
-              [valueFormatter]="formatResolution" />
+              (valueChange)="rotationSpeed.set($event)" [markers]="[0]" [valueFormatter]="formatFloat1" />
 
             <app-slider label="Dithering" [value]="dithering()" [min]="0" [max]="1" [step]="0.01"
-              [displayValue]="dithering().toFixed(2)" (valueChange)="dithering.set($event)"
-              [valueFormatter]="formatFloat2" />
+              (valueChange)="dithering.set($event)" [valueFormatter]="formatFloat2" />
 
             <app-switch label="Show Performance Stats (FPS)" [checked]="showStats()"
               (checkedChange)="toggleStats($event)" />

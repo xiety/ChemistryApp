@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, AfterViewInit, ViewChild, effect, input, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, AfterViewInit, ViewChild, effect, input, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { OrbitalMathService } from '../services/orbital-math.service';
 import { OrbitalRenderingService, DEFAULT_SETTINGS } from '../services/orbital-rendering.service';
@@ -10,13 +10,6 @@ import { OrbitalRenderingService, DEFAULT_SETTINGS } from '../services/orbital-r
   template: `
     <div class="viewer-container">
       <div #rendererContainer class="renderer-target"></div>
-      
-      @if (isLoading()) {
-        <div class="loading-pill">
-          <div class="spinner"></div>
-          <span>Calculating...</span>
-        </div>
-      }
     </div>
   `,
   styleUrl: './orbital-viewer.component.css'
@@ -31,6 +24,7 @@ export class OrbitalViewerComponent implements AfterViewInit, OnDestroy {
 
   showCloud = input<boolean>(DEFAULT_SETTINGS.showCloud);
   showIsoLines = input<boolean>(DEFAULT_SETTINGS.showIsoLines);
+  showSurface = input<boolean>(DEFAULT_SETTINGS.showSurface);
   showMesh = input<boolean>(DEFAULT_SETTINGS.showMesh);
   showStats = input<boolean>(DEFAULT_SETTINGS.showStats);
 
@@ -46,12 +40,10 @@ export class OrbitalViewerComponent implements AfterViewInit, OnDestroy {
   sliceZ = input<number>(DEFAULT_SETTINGS.sliceZ);
 
   dithering = input<number>(DEFAULT_SETTINGS.dithering);
+  rayStepCount = input<number>(DEFAULT_SETTINGS.rayStepCount);
 
-  isLoading = signal(false);
   viewReady = signal(false);
 
-  private isCalculating = false;
-  private pendingRequest: { n: number, l: number, m: number, res: number; } | null = null;
   private resizeObserver: ResizeObserver | null = null;
 
   constructor(
@@ -59,19 +51,27 @@ export class OrbitalViewerComponent implements AfterViewInit, OnDestroy {
     private renderService: OrbitalRenderingService
   ) {
     effect(() => {
-      if (!this.viewReady()) return;
-      this.queueLoad(this.n(), this.l(), this.m(), this.resolution());
+      if (!this.viewReady() || !this.showMesh()) return;
+
+      const resolution = this.resolution();
+
+      const data = this.mathService.generateData(this.n(), this.l(), this.m(), resolution);
+      this.renderService.updateData(data, resolution, this.threshold());
     });
 
     effect(() => {
       if (!this.viewReady()) return;
 
       this.renderService.updateSettings({
+        n: this.n(),
+        l: this.l(),
+        m: this.m(),
         opacity: this.opacity(),
         glow: this.glow(),
         colorTheme: this.colorTheme(),
         showIsoLines: this.showIsoLines(),
         showCloud: this.showCloud(),
+        showSurface: this.showSurface(),
         showMesh: this.showMesh(),
         showStats: this.showStats(),
         contourDensity: this.contourDensity(),
@@ -81,7 +81,8 @@ export class OrbitalViewerComponent implements AfterViewInit, OnDestroy {
         sliceZ: this.sliceZ(),
         threshold: this.threshold(),
         dithering: this.dithering(),
-        resolution: this.resolution()
+        resolution: this.resolution(),
+        rayStepCount: this.rayStepCount()
       });
     });
   }
@@ -103,38 +104,5 @@ export class OrbitalViewerComponent implements AfterViewInit, OnDestroy {
 
   ngOnDestroy() {
     this.resizeObserver?.disconnect();
-  }
-
-  private queueLoad(n: number, l: number, m: number, res: number) {
-    this.pendingRequest = { n, l, m, res };
-    if (!this.isCalculating) {
-      this.processQueue();
-    }
-  }
-
-  private async processQueue() {
-    if (!this.pendingRequest) {
-      this.isCalculating = false;
-      this.isLoading.set(false);
-      return;
-    }
-
-    this.isCalculating = true;
-    this.isLoading.set(true);
-
-    await new Promise(resolve => requestAnimationFrame(resolve));
-
-    const req = this.pendingRequest;
-    this.pendingRequest = null;
-
-    if (!req) {
-      this.processQueue();
-      return;
-    }
-
-    const data = await this.mathService.generateVolumeData(req.n, req.l, req.m, req.res);
-    this.renderService.updateData(data, req.res, this.threshold());
-
-    this.processQueue();
   }
 }

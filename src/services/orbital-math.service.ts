@@ -19,23 +19,25 @@ export interface OrbitalGroup {
 })
 export class OrbitalMathService {
 
-  private static FACTORIALS: number[] = [
-    1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600,
-    6227020800, 87178291200, 1307674368000, 20922789888000, 355687428096000,
-    6402373705728000
-  ];
+  private factCache: number[] = [1, 1];
+
+  constructor() {
+    let f = 1;
+    for (let i = 2; i <= 50; i++) {
+      f *= i;
+      this.factCache[i] = f;
+    }
+  }
 
   getOrbitalGroups(): OrbitalGroup[] {
     const groups: OrbitalGroup[] = [];
-
     const maxLPerShell: Record<number, number> = {
-      1: 0, 2: 1, 3: 2, 4: 3, 5: 3, 6: 2, 7: 1
+      1: 0, 2: 1, 3: 2, 4: 3, 5: 3, 6: 4, 7: 5
     };
 
     for (let n = 1; n <= 7; n++) {
       const group: OrbitalGroup = { n, orbitals: [] };
-      const maxL = maxLPerShell[n];
-
+      const maxL = maxLPerShell[n] ?? (n - 1);
       for (let l = 0; l <= maxL; l++) {
         for (let m = 0; m <= l; m++) {
           const lChar = ORBITAL_LABELS[l] || '?';
@@ -49,12 +51,7 @@ export class OrbitalMathService {
     return groups;
   }
 
-  async generateVolumeData(n: number, l: number, m: number, size: number): Promise<Float32Array> {
-    const rawData = this.computeBuffer(n, l, m, size);
-    return this.applyGaussianSmooth(rawData, size, 2);
-  }
-
-  private computeBuffer(n: number, l: number, m: number, size: number): Float32Array {
+  generateData(n: number, l: number, m: number, size: number): Float32Array {
     const totalSize = size * size * size;
     const data = new Float32Array(totalSize);
 
@@ -63,6 +60,16 @@ export class OrbitalMathService {
     const boxScale = baseScale * Math.max(0.6, compaction);
 
     const invSizeMinus1 = 1.0 / (size - 1);
+
+    const factNMinusLMinus1 = this.factorial(n - l - 1);
+    const factNPlusL = this.factorial(n + l);
+    const term1 = Math.pow(2.0 / n, 3.0);
+    const term2 = factNMinusLMinus1 / (2.0 * n * factNPlusL);
+    const radNorm = Math.sqrt(term1 * term2);
+
+    const factLMinusM = this.factorial(l - m);
+    const factLPlusM = this.factorial(l + m);
+    const angNorm = Math.sqrt(((2.0 * l + 1.0) / (4.0 * Math.PI)) * (factLMinusM / factLPlusM));
 
     const scaleFactor = 4.0 * Math.pow(n, 2.5);
 
@@ -80,157 +87,149 @@ export class OrbitalMathService {
       const py = v * boxScale;
       const pz = w * boxScale;
 
-      const val = this.psi(n, l, m, px, py, pz);
-
-      data[i] = val * scaleFactor;
+      data[i] = this.computePsi(px, py, pz, n, l, m, radNorm, angNorm) * scaleFactor;
     }
+
+    this.applyGaussianSmooth(data, size, 2);
 
     return data;
   }
 
-  private applyGaussianSmooth(input: Float32Array, size: number, passes: number): Float32Array {
-    let current = input;
+  applyGaussianSmooth(data: Float32Array, size: number, passes: number = 2): void {
+    const len = data.length;
+    const temp = new Float32Array(len);
     const layerSize = size * size;
+
+    let src: Float32Array = data;
+    let dst: Float32Array = temp;
 
     const wMid = 0.5;
     const wSide = 0.25;
 
     for (let p = 0; p < passes; p++) {
-      const next = new Float32Array(current.length);
-
       for (let z = 0; z < size; z++) {
+        const zOffset = z * layerSize;
         for (let y = 0; y < size; y++) {
+          const rowOffset = zOffset + y * size;
           for (let x = 1; x < size - 1; x++) {
-            const i = z * layerSize + y * size + x;
-            next[i] = current[i] * wMid + (current[i - 1] + current[i + 1]) * wSide;
+            const i = rowOffset + x;
+            dst[i] = src[i] * wMid + (src[i - 1] + src[i + 1]) * wSide;
           }
         }
       }
 
-      current.set(next);
+      [src, dst] = [dst, src];
 
       for (let z = 0; z < size; z++) {
+        const zOffset = z * layerSize;
         for (let y = 1; y < size - 1; y++) {
+          const rowOffset = zOffset + y * size;
           for (let x = 0; x < size; x++) {
-            const i = z * layerSize + y * size + x;
-            next[i] = current[i] * wMid + (current[i - size] + current[i + size]) * wSide;
+            const i = rowOffset + x;
+            dst[i] = src[i] * wMid + (src[i - size] + src[i + size]) * wSide;
           }
         }
       }
 
-      current.set(next);
+      [src, dst] = [dst, src];
 
       for (let z = 1; z < size - 1; z++) {
+        const zOffset = z * layerSize;
         for (let y = 0; y < size; y++) {
+          const rowOffset = zOffset + y * size;
           for (let x = 0; x < size; x++) {
-            const i = z * layerSize + y * size + x;
-            next[i] = current[i] * wMid + (current[i - layerSize] + current[i + layerSize]) * wSide;
+            const i = rowOffset + x;
+            dst[i] = src[i] * wMid + (src[i - layerSize] + src[i + layerSize]) * wSide;
           }
         }
       }
 
-      current = next;
+      [src, dst] = [dst, src];
     }
 
-    return current;
+    if (src !== data) {
+      data.set(src);
+    }
   }
 
-  private psi(n: number, l: number, m: number, x: number, y: number, z: number): number {
+  private computePsi(x: number, y: number, z: number, n: number, l: number, m: number, radNorm: number, angNorm: number): number {
     const r2 = x * x + y * y + z * z;
-    if (r2 < 1e-12) return 0;
-
+    if (r2 < 1e-9) return 0;
     const r = Math.sqrt(r2);
 
-    if (r > 7.0 * n * n + 50) return 0;
+    if (r > (7.0 * n * n + 50.0)) return 0;
+
+    const rho = (2.0 * r) / n;
+
+    const L = this.laguerre(n - l - 1, 2 * l + 1, rho);
+    const R = radNorm * Math.pow(rho, l) * Math.exp(-rho * 0.5) * L;
 
     const theta = Math.acos(z / r);
     const phi = Math.atan2(y, x);
 
-    const R = this.radialWavefunction(n, l, r);
-    const Y = this.realSphericalHarmonic(l, m, theta, phi);
+    const Y_val = this.legendre(l, m, Math.cos(theta));
+
+    let Y = 0;
+    if (m === 0) {
+      Y = angNorm * Y_val;
+    } else {
+      const sqrt2 = 1.41421356;
+      if (m > 0) {
+        Y = sqrt2 * angNorm * Y_val * Math.cos(m * phi);
+      } else {
+        Y = sqrt2 * angNorm * Y_val * Math.sin(-m * phi);
+      }
+    }
 
     return R * Y;
   }
 
-  private radialWavefunction(n: number, l: number, r: number): number {
-    const rho = (2.0 * r) / n;
-    const prefactor = Math.sqrt(
-      Math.pow(2.0 / n, 3) *
-      (this.factorial(n - l - 1) / (2.0 * n * this.factorial(n + l)))
-    );
-    const laguerre = this.assocLaguerre(n - l - 1, 2 * l + 1, rho);
-    return prefactor * Math.pow(rho, l) * Math.exp(-rho / 2.0) * laguerre;
+  private factorial(n: number): number {
+    if (n <= 1) return 1;
+    if (n < this.factCache.length) return this.factCache[n];
+    let f = 1;
+    for (let i = 1; i <= n; i++) f *= i;
+    return f;
   }
 
-  private realSphericalHarmonic(l: number, m: number, theta: number, phi: number): number {
-    const absM = Math.abs(m);
-    const P_lm = this.legendre(l, absM, Math.cos(theta));
-    let N = Math.sqrt(
-      ((2 * l + 1) / (4 * Math.PI)) *
-      (this.factorial(l - absM) / this.factorial(l + absM))
-    );
+  private laguerre(n: number, alpha: number, x: number): number {
+    if (n === 0) return 1.0;
+    let L_curr = 1.0 + alpha - x;
+    let L_prev = 1.0;
 
-    if (m === 0) {
-      return N * P_lm;
-    } else if (m > 0) {
-      return Math.sqrt(2) * N * P_lm * Math.cos(m * phi);
-    } else {
-      return Math.sqrt(2) * N * P_lm * Math.sin(absM * phi);
+    for (let i = 2; i <= n; i++) {
+      const k = i - 1;
+      const L_next = ((2 * k + 1 + alpha - x) * L_curr - (k + alpha) * L_prev) / (k + 1);
+      L_prev = L_curr;
+      L_curr = L_next;
     }
-  }
-
-  private assocLaguerre(n: number, k: number, x: number): number {
-    if (n < 0) return 0;
-    if (n === 0) return 1;
-    let sum = 0;
-    for (let i = 0; i <= n; i++) {
-      const num = this.factorial(n + k);
-      const den = this.factorial(n - i) * this.factorial(k + i) * this.factorial(i);
-      const term = (Math.pow(-1, i) * num) / den;
-      sum += term * Math.pow(x, i);
-    }
-    return sum;
+    return L_curr;
   }
 
   private legendre(l: number, m: number, x: number): number {
-    const pmm = (m: number, x: number): number => {
-      let val = 1.0;
-      if (m > 0) {
-        const somx2 = Math.sqrt((1.0 - x) * (1.0 + x));
-        let fact = 1.0;
-        for (let i = 1; i <= m; i++) {
-          val *= -fact * somx2;
-          fact += 2.0;
-        }
+    let pmm = 1.0;
+    if (m > 0) {
+      const somx2 = Math.sqrt(Math.max(0, (1.0 - x) * (1.0 + x)));
+      let fact = 1.0;
+      for (let i = 1; i <= m; i++) {
+        pmm *= -fact * somx2;
+        fact += 2.0;
       }
-      return val;
-    };
+    }
+    if (l === m) return pmm;
 
-    if (l === m) return pmm(m, x);
-    const pmm1 = x * (2 * m + 1) * pmm(m, x);
+    let pmm1 = x * (2.0 * m + 1.0) * pmm;
     if (l === m + 1) return pmm1;
 
-    let pl = pmm1;
-    let pl_1 = pmm(m, x);
-    let ll = m + 2;
-    for (; ll <= l; ll++) {
-      const nextP = (x * (2 * ll - 1) * pl - (ll + m - 1) * pl_1) / (ll - m);
-      pl_1 = pl;
-      pl = nextP;
+    let pl = 0.0;
+    let p_prev = pmm1;
+    let p_prev2 = pmm;
+
+    for (let ll = m + 2; ll <= l; ll++) {
+      pl = (x * (2.0 * ll - 1.0) * p_prev - (ll + m - 1.0) * p_prev2) / (ll - m);
+      p_prev2 = p_prev;
+      p_prev = pl;
     }
     return pl;
-  }
-
-  private factorial(n: number): number {
-    if (n < 0) return 1;
-    if (n < OrbitalMathService.FACTORIALS.length) {
-      return OrbitalMathService.FACTORIALS[n];
-    }
-    const lastIndex = OrbitalMathService.FACTORIALS.length - 1;
-    let res = OrbitalMathService.FACTORIALS[lastIndex];
-    for (let i = lastIndex + 1; i <= n; i++) {
-      res *= i;
-    }
-    return res;
   }
 }

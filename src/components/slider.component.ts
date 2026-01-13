@@ -9,7 +9,7 @@ import { CommonModule } from '@angular/common';
     <div class="slider-container">
       <div class="header">
         <span class="label">{{ label() }}</span>
-        <span class="value">{{ displayValue() }}</span>
+        <span class="value">{{ formattedValue() }}</span>
       </div>
 
       <div class="input-wrapper">
@@ -47,12 +47,17 @@ export class SliderComponent {
   min = input.required<number>();
   max = input.required<number>();
   step = input<number>(1);
-  displayValue = input<string | number>('');
 
   markers = input<number[]>([]);
   valueFormatter = input<(v: number) => string | number>();
 
   valueChange = output<number>();
+
+  formattedValue = computed(() => {
+    const val = this.value();
+    const fmt = this.valueFormatter();
+    return fmt ? fmt(val) : val;
+  });
 
   generatedTicks = computed(() => {
     const min = this.min();

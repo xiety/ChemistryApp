@@ -21,8 +21,9 @@ export class AppComponent {
   m = signal(0);
 
   resolution = signal(DEFAULT_SETTINGS.resolution);
-  opacity = signal(DEFAULT_SETTINGS.opacity);
   glow = signal(DEFAULT_SETTINGS.glow);
+  opacity = signal(DEFAULT_SETTINGS.opacity);
+  rayStepCount = signal(DEFAULT_SETTINGS.rayStepCount);
 
   rotationSpeed = signal(DEFAULT_SETTINGS.rotationSpeed);
   autoRotate = signal(true);
@@ -32,6 +33,7 @@ export class AppComponent {
 
   showCloud = signal(DEFAULT_SETTINGS.showCloud);
   showIsoLines = signal(DEFAULT_SETTINGS.showIsoLines);
+  showSurface = signal(DEFAULT_SETTINGS.showSurface);
   showMesh = signal(DEFAULT_SETTINGS.showMesh);
   showStats = signal(DEFAULT_SETTINGS.showStats);
 
@@ -113,9 +115,7 @@ export class AppComponent {
 
   toggleFullScreen() {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(err => {
-        console.error(`Error enabling full-screen mode: ${err.message}`);
-      });
+      document.documentElement.requestFullscreen();
     } else {
       if (document.exitFullscreen) {
         document.exitFullscreen();
@@ -129,6 +129,10 @@ export class AppComponent {
 
   toggleIsoLines() {
     this.showIsoLines.update(v => !v);
+  }
+
+  toggleSurface() {
+    this.showSurface.update(v => !v);
   }
 
   toggleMesh() {
