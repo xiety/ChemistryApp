@@ -13,7 +13,7 @@ const QUANTUM_MATH = `
     float p8 = 1.5056327351493116e-7;
     float z = x - 1.0;
     float t = z + 7.5;
-    float sum = p0 + p1/(z+1.0) + p2/(z+2.0) + p3/(z+3.0) + p4/(z+4.0) + 
+    float sum = p0 + p1/(z+1.0) + p2/(z+2.0) + p3/(z+3.0) + p4/(z+4.0) +
                 p5/(z+5.0) + p6/(z+6.0) + p7/(z+7.0) + p8/(z+8.0);
     return sqrt(2.0 * PI) * pow(t, z + 0.5) * exp(-t) * sum;
   }
@@ -44,7 +44,7 @@ const QUANTUM_MATH = `
     if (m > 0) {
       float somx2 = sqrt(max(0.0, (1.0 - x) * (1.0 + x)));
       float fact = 1.0;
-      for (int i = 1; i <= 10; i++) { 
+      for (int i = 1; i <= 10; i++) {
          if (i > m) break;
          pmm *= -fact * somx2;
          fact += 2.0;
@@ -66,16 +66,22 @@ const QUANTUM_MATH = `
     return pl;
   }
 
-  float getWavefunctionScaled(vec3 p, int n, int l, int m) {
+  float getBoxScale(int n, int l) {
     float fN = float(n);
     float fL = float(l);
     float baseScale = 12.0 + (fN * fN * 4.0);
     float compaction = 1.0 - (fL * 0.04);
-    float boxScale = baseScale * max(0.6, compaction);
+    return baseScale * max(0.6, compaction);
+  }
+
+  float getWavefunctionScaled(vec3 p, int n, int l, int m, float boxScale) {
+    float fN = float(n);
+    float fL = float(l);
 
     vec3 pos = p * boxScale;
 
     float r = length(pos);
+
     if (r > (7.0 * fN * fN + 50.0)) return 0.0;
     if (r < 1e-6) return 0.0;
 
@@ -107,7 +113,7 @@ const QUANTUM_MATH = `
         if (m > 0) {
             Y = sqrt2 * angNorm * Y_val * cos(float(m) * phi);
         } else {
-            Y = sqrt2 * angNorm * Y_val * sin(float(-m) * phi); 
+            Y = sqrt2 * angNorm * Y_val * sin(float(-m) * phi);
         }
     }
 
@@ -152,7 +158,7 @@ export const FRAGMENT_SHADER = `
   uniform vec3 uCameraPos;
   uniform float uGlow;
   uniform int uColorTheme;
-  uniform float uIsoLines; 
+  uniform float uIsoLines;
   uniform float uShowCloud;
   uniform float uShowSurface;
 
@@ -181,58 +187,67 @@ export const FRAGMENT_SHADER = `
     return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
   }
 
-  vec2 intersectBox(vec3 origin, vec3 dir, vec3 boxMin, vec3 boxMax) {
-    vec3 tMin = (boxMin - origin) / dir;
-    vec3 tMax = (boxMax - origin) / dir;
-    vec3 t1 = min(tMin, tMax);
-    vec3 t2 = max(tMin, tMax);
-    float tNear = max(max(t1.x, t1.y), t1.z);
-    float tFar = min(min(t2.x, t2.y), t2.z);
-    return vec2(tNear, tFar);
+  vec3 getNormal(vec3 p, int n, int l, int m, float boxScale) {
+    float eps = 0.005;
+
+    float val = abs(getWavefunctionScaled(p, n, l, m, boxScale));
+    float x1 = abs(getWavefunctionScaled(p + vec3(eps, 0.0, 0.0), n, l, m, boxScale));
+    float x2 = abs(getWavefunctionScaled(p - vec3(eps, 0.0, 0.0), n, l, m, boxScale));
+    float y1 = abs(getWavefunctionScaled(p + vec3(0.0, eps, 0.0), n, l, m, boxScale));
+    float y2 = abs(getWavefunctionScaled(p - vec3(0.0, eps, 0.0), n, l, m, boxScale));
+    float z1 = abs(getWavefunctionScaled(p + vec3(0.0, 0.0, eps), n, l, m, boxScale));
+    float z2 = abs(getWavefunctionScaled(p - vec3(0.0, 0.0, eps), n, l, m, boxScale));
+
+    return normalize(-vec3(x1 - x2, y1 - y2, z1 - z2));
   }
 
-  vec3 getNormal(vec3 p, int n, int l, int m) {
-      float d = 0.01;
-      float valX1 = abs(getWavefunctionScaled(p + vec3(d, 0, 0), n, l, m));
-      float valX2 = abs(getWavefunctionScaled(p - vec3(d, 0, 0), n, l, m));
-      float dx = valX1 - valX2;
-
-      float valY1 = abs(getWavefunctionScaled(p + vec3(0, d, 0), n, l, m));
-      float valY2 = abs(getWavefunctionScaled(p - vec3(0, d, 0), n, l, m));
-      float dy = valY1 - valY2;
-
-      float valZ1 = abs(getWavefunctionScaled(p + vec3(0, 0, d), n, l, m));
-      float valZ2 = abs(getWavefunctionScaled(p - vec3(0, 0, d), n, l, m));
-      float dz = valZ1 - valZ2;
-
-      vec3 grad = vec3(dx, dy, dz);
-      if (dot(grad, grad) < 1e-12) return normalize(-p); 
-      return normalize(-grad);
+  vec3 getLighting(vec3 col, vec3 normal, vec3 viewDir, vec3 lightDir) {
+      float diff = max(dot(normal, lightDir), 0.0);
+      vec3 halfDir = normalize(lightDir + viewDir);
+      float spec = pow(max(dot(normal, halfDir), 0.0), 32.0);
+      return col * (0.3 + 0.7 * diff) + vec3(0.3) * spec;
   }
 
   void main() {
+    float boxScale = getBoxScale(uN, uL);
     vec3 rayDir = normalize(vOrigin - uCameraPos);
 
-    float stepSize = 3.5 / uRaySteps;
-    stepSize = max(stepSize, 0.001);
+    vec3 boxMin = vec3(-1.0);
+    vec3 boxMax = vec3(uSliceX, uSliceY, uSliceZ);
 
-    vec2 clippedBounds = intersectBox(uCameraPos, rayDir, vec3(-1.0), vec3(uSliceX, uSliceY, uSliceZ));
+    vec3 invDir = 1.0 / rayDir;
+    vec3 tMinVec = (boxMin - uCameraPos) * invDir;
+    vec3 tMaxVec = (boxMax - uCameraPos) * invDir;
 
-    if (clippedBounds.x > clippedBounds.y) discard;
+    vec3 t1 = min(tMinVec, tMaxVec);
+    vec3 t2 = max(tMinVec, tMaxVec);
 
-    float tStart = max(clippedBounds.x, 0.0);
-    float tEnd = clippedBounds.y;
+    float tNear = max(max(t1.x, t1.y), t1.z);
+    float tFar = min(min(t2.x, t2.y), t2.z);
+
+    if (tNear > tFar || tFar < 0.0) discard;
+
+    vec3 normalExit = vec3(0.0);
+    if (t2.x <= t2.y && t2.x <= t2.z) normalExit = vec3(-sign(rayDir.x), 0.0, 0.0);
+    else if (t2.y <= t2.z) normalExit = vec3(0.0, -sign(rayDir.y), 0.0);
+    else normalExit = vec3(0.0, 0.0, -sign(rayDir.z));
+
+    vec3 normalEntry = vec3(0.0);
+    if (t1.x >= t1.y && t1.x >= t1.z) normalEntry = vec3(-sign(rayDir.x), 0.0, 0.0);
+    else if (t1.y >= t1.z) normalEntry = vec3(0.0, -sign(rayDir.y), 0.0);
+    else normalEntry = vec3(0.0, 0.0, -sign(rayDir.z));
+
+    float tStart = max(tNear, 0.0);
+    float nominalStepSize = 3.5 / uRaySteps;
 
     if (uDithering > 0.01) {
-      float jitter = random(gl_FragCoord.xy); 
-      tStart += jitter * stepSize * uDithering;
+       tStart += random(gl_FragCoord.xy) * nominalStepSize * uDithering;
     }
 
     vec3 p = uCameraPos + tStart * rayDir;
-    vec3 marchStep = rayDir * stepSize;
+    float dist = tStart;
 
     vec4 colorAcc = vec4(0.0);
-    float dist = tStart;
 
     bool renderIso = uIsoLines > 0.5;
     bool renderCloud = uShowCloud > 0.5;
@@ -241,84 +256,90 @@ export const FRAGMENT_SHADER = `
     vec3 lightDir = normalize(vec3(5.0, 10.0, 7.0));
     vec3 viewDir = -rayDir;
 
-    float prevAbsVal = 0.0;
+    float prevAbsVal = abs(getWavefunctionScaled(p, uN, uL, uM, boxScale));
+    bool wasInside = prevAbsVal > uThreshold;
 
-    prevAbsVal = abs(getWavefunctionScaled(p - marchStep, uN, uL, uM));
+    if (renderSurface && wasInside && tNear > 0.0) {
+        float valEntry = getWavefunctionScaled(p, uN, uL, uM, boxScale);
+        vec3 col = getOrbitalColor(valEntry);
+        vec3 lighting = getLighting(col, normalEntry, viewDir, lightDir);
+        float alpha = uOpacity;
+        colorAcc.rgb += (1.0 - colorAcc.a) * alpha * lighting;
+        colorAcc.a += (1.0 - colorAcc.a) * alpha;
+    }
 
-    for(int i = 0; i < 500; i++) {
-      if (dist > tEnd) break;
-      if (colorAcc.a >= 0.99) break;
+    int maxSteps = int(uRaySteps);
 
-      float val = getWavefunctionScaled(p, uN, uL, uM);
+    for(int i = 0; i < 256; i++) {
+      if (i >= maxSteps) break;
+
+      if (dist >= tFar - 1e-6) break;
+
+      float currentStep = nominalStepSize;
+
+      if (dist + currentStep > tFar) {
+         currentStep = tFar - dist;
+      }
+
+      p += rayDir * currentStep;
+      dist += currentStep;
+
+      float val = getWavefunctionScaled(p, uN, uL, uM, boxScale);
       float absVal = abs(val);
-      float density = val * val; 
+      float density = val * val;
+      bool isInside = absVal > uThreshold;
 
       vec3 col = getOrbitalColor(val);
 
+      if (renderSurface) {
+        if (isInside != wasInside) {
+
+          float t = (uThreshold - prevAbsVal) / (absVal - prevAbsVal + 1e-6);
+          float distHit = (dist - currentStep) + currentStep * t;
+
+          vec3 hitPos = uCameraPos + distHit * rayDir;
+
+          vec3 normal = getNormal(hitPos, uN, uL, uM, boxScale);
+          if (!isInside && wasInside) normal = -normal;
+
+          vec3 lighting = getLighting(col, normal, viewDir, lightDir);
+          float alpha = uOpacity;
+          colorAcc.rgb += (1.0 - colorAcc.a) * alpha * lighting;
+          colorAcc.a += (1.0 - colorAcc.a) * alpha;
+        }
+
+        if (dist >= tFar - 1e-5 && isInside) {
+            vec3 lighting = getLighting(col, normalExit, viewDir, lightDir);
+            float alpha = uOpacity;
+            colorAcc.rgb += (1.0 - colorAcc.a) * alpha * lighting;
+            colorAcc.a += (1.0 - colorAcc.a) * alpha;
+        }
+
+        wasInside = isInside;
+      }
+
       if (renderCloud && density > 0.0001) {
-        float alpha = density * 50.0 * uGlow * stepSize;
+        float alpha = density * 50.0 * uGlow * currentStep;
         alpha = clamp(alpha, 0.0, 1.0);
         colorAcc.rgb += (1.0 - colorAcc.a) * alpha * col;
         colorAcc.a += (1.0 - colorAcc.a) * alpha;
       }
 
-      if (renderSurface) {
-         if (prevAbsVal < uThreshold && absVal >= uThreshold) {
-
-            float t = (uThreshold - prevAbsVal) / (absVal - prevAbsVal + 1e-6);
-            t = clamp(t, 0.0, 1.0);
-
-            vec3 hitPos = p - marchStep * (1.0 - t);
-
-            float hitVal = getWavefunctionScaled(hitPos, uN, uL, uM);
-            vec3 surfColor = getOrbitalColor(hitVal);
-            vec3 normal = getNormal(hitPos, uN, uL, uM);
-
-            float diff = max(dot(normal, lightDir), 0.0);
-
-            vec3 halfDir = normalize(lightDir + viewDir);
-            float spec = pow(max(dot(normal, halfDir), 0.0), 32.0);
-
-            float rim = pow(1.0 - max(dot(normal, viewDir), 0.0), 3.0);
-
-            vec3 ambient = surfColor * 0.4;
-            vec3 diffuse = surfColor * 0.6 * diff;
-            vec3 specular = vec3(1.0) * spec * 0.3;
-            vec3 rimColor = surfColor * rim * 0.5;
-
-            vec3 lighting = ambient + diffuse + specular + rimColor;
-
-            if (uOpacity >= 0.95) {
-                colorAcc.rgb += (1.0 - colorAcc.a) * lighting;
-                colorAcc.a = 1.0;
-                gl_FragColor = colorAcc;
-                return;
-            }
-
-            float alpha = uOpacity; 
-            colorAcc.rgb += (1.0 - colorAcc.a) * alpha * lighting;
-            colorAcc.a += (1.0 - colorAcc.a) * alpha;
-         }
-      }
-
       if (renderIso) {
-         float contour = sin(density * uContourFreq);
-         float line = smoothstep(0.95, 1.0, contour);
-         if (line > 0.01) {
-             vec3 emission = col * line * 2.0; 
-             float lineAlpha = line * 0.5 * stepSize * 10.0; 
-             colorAcc.rgb += (1.0 - colorAcc.a) * lineAlpha * emission;
-             colorAcc.a += (1.0 - colorAcc.a) * lineAlpha;
-         }
+        float contour = sin(density * uContourFreq);
+        float line = smoothstep(0.95, 1.0, contour);
+        if (line > 0.01) {
+          vec3 emission = col * line * 2.0;
+          float lineAlpha = line * 0.5 * currentStep * 10.0;
+          colorAcc.rgb += (1.0 - colorAcc.a) * lineAlpha * emission;
+          colorAcc.a += (1.0 - colorAcc.a) * lineAlpha;
+        }
       }
 
       prevAbsVal = absVal;
-      p += marchStep;
-      dist += stepSize;
     }
 
     if (colorAcc.a < 0.01) discard;
-
     gl_FragColor = colorAcc;
   }
 `;

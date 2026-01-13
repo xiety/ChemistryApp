@@ -145,14 +145,23 @@
           <div class="divider"></div>
 
           <div class="stack-small">
+            @if (showCloud() || showSurface() || showIsoLines()) {
             <app-slider label="Ray Steps (Quality)" [value]="rayStepCount()" [min]="32" [max]="256" [step]="16"
               (valueChange)="rayStepCount.set($event)" [valueFormatter]="formatInt" />
 
+            <app-slider label="Dithering" [value]="dithering()" [min]="0" [max]="1" [step]="0.01"
+              (valueChange)="dithering.set($event)" [valueFormatter]="formatFloat2" />
+            }
+
+            @if (showSurface() || showMesh()) {
             <app-slider label="Surface Threshold" [value]="surfaceThreshold()" [min]="0.01" [max]="1.0" [step]="0.01"
               (valueChange)="surfaceThreshold.set($event)" [valueFormatter]="formatFloat2" />
+            }
 
+            @if (showIsoLines()) {
             <app-slider label="Contour Frequency" [value]="contourDensity()" [min]="20" [max]="200" [step]="10"
               (valueChange)="contourDensity.set($event)" [valueFormatter]="formatInt" />
+            }
 
             @if(showCloud()) {
             <app-slider label="Glow Intensity" [value]="glow()" [min]="0.5" [max]="3.0" [step]="0.1"
@@ -188,9 +197,6 @@
 
             <app-slider label="Rotation Speed" [value]="rotationSpeed()" [min]="-2.0" [max]="2.0" [step]="0.1"
               (valueChange)="rotationSpeed.set($event)" [markers]="[0]" [valueFormatter]="formatFloat1" />
-
-            <app-slider label="Dithering" [value]="dithering()" [min]="0" [max]="1" [step]="0.01"
-              (valueChange)="dithering.set($event)" [valueFormatter]="formatFloat2" />
 
             <app-switch label="Show Performance Stats (FPS)" [checked]="showStats()"
               (checkedChange)="toggleStats($event)" />

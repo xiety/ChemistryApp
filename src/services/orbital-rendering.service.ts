@@ -58,7 +58,7 @@ export const DEFAULT_SETTINGS: RenderSettings = {
   sliceZ: 1.0,
   threshold: 0.15,
   dithering: 0.0,
-  resolution: 96,
+  resolution: 128,
   opacity: 1.0,
   rayStepCount: 128
 };
@@ -109,8 +109,8 @@ export class OrbitalRenderingService implements OnDestroy {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.05;
-    this.controls.minDistance = 2;
-    this.controls.maxDistance = 30;
+    this.controls.minDistance = 0;
+    this.controls.maxDistance = 40;
     this.controls.autoRotate = true;
 
     this.setupLights();
@@ -229,14 +229,15 @@ export class OrbitalRenderingService implements OnDestroy {
       this.volumeTexture.type = THREE.FloatType;
       this.volumeTexture.minFilter = THREE.LinearFilter;
       this.volumeTexture.magFilter = THREE.LinearFilter;
+      this.volumeTexture.needsUpdate = true;
 
       if (this.meshMaterial.uniforms) {
         this.meshMaterial.uniforms['uVolume'].value = this.volumeTexture;
       }
     } else {
       this.volumeTexture.image.data = data;
+      this.volumeTexture.needsUpdate = true;
     }
-    this.volumeTexture.needsUpdate = true;
 
     this.marchingCubes.init(res);
 

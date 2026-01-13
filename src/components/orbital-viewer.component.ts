@@ -1,4 +1,4 @@
-import { Component, ElementRef, OnDestroy, AfterViewInit, ViewChild, effect, input, signal, computed } from '@angular/core';
+import { Component, ElementRef, OnDestroy, AfterViewInit, ViewChild, effect, input, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { OrbitalMathService } from '../services/orbital-math.service';
 import { OrbitalRenderingService, DEFAULT_SETTINGS } from '../services/orbital-rendering.service';
@@ -50,13 +50,19 @@ export class OrbitalViewerComponent implements AfterViewInit, OnDestroy {
     private mathService: OrbitalMathService,
     private renderService: OrbitalRenderingService
   ) {
-    effect(() => {
-      if (!this.viewReady() || !this.showMesh()) return;
 
+    effect(() => {
+      if (!this.viewReady()) return;
+
+      const n = this.n();
+      const l = this.l();
+      const m = this.m();
       const resolution = this.resolution();
 
-      const data = this.mathService.generateData(this.n(), this.l(), this.m(), resolution);
-      this.renderService.updateData(data, resolution, this.threshold());
+      const threshold = this.threshold();
+
+      const data = this.mathService.generateData(n, l, m, resolution);
+      this.renderService.updateData(data, resolution, threshold);
     });
 
     effect(() => {
