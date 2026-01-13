@@ -23,7 +23,10 @@ export class AppComponent {
   resolution = signal(DEFAULT_SETTINGS.resolution);
   opacity = signal(DEFAULT_SETTINGS.opacity);
   glow = signal(DEFAULT_SETTINGS.glow);
+
   rotationSpeed = signal(DEFAULT_SETTINGS.rotationSpeed);
+  autoRotate = signal(true);
+
   colorTheme = signal(DEFAULT_SETTINGS.colorTheme);
   dithering = signal(DEFAULT_SETTINGS.dithering);
 
@@ -82,6 +85,17 @@ export class AppComponent {
       this.isFullscreen.set(!!document.fullscreenElement);
     });
   }
+
+  formatInt = (v: number) => v.toFixed(0);
+  formatFloat1 = (v: number) => v.toFixed(1);
+  formatFloat2 = (v: number) => v.toFixed(2);
+  formatPercent = (v: number) => (v * 100).toFixed(0) + '%';
+  formatResolution = (v: number) => v + '³';
+
+  formatL = (v: number) => {
+    const label = ORBITAL_LABELS[v] || '?';
+    return `${v} (${label})`;
+  };
 
   selectPreset(p: OrbitalPreset) {
     this.n.set(p.n);

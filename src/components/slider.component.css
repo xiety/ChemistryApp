@@ -4,12 +4,12 @@
 }
 
 .slider-container {
-  padding: 0.5rem 0;
+  padding: 0.25rem 0;
 
   .header {
     display: flex;
     justify-content: space-between;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
     font-size: 0.875rem;
 
     .label {
@@ -31,19 +31,55 @@
     display: flex;
     align-items: center;
 
-    .range-input {
-      appearance: none;
+    .track {
+      position: absolute;
+      left: 0;
       width: 100%;
       height: 6px;
       background: #334155;
       border-radius: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+
+    .ticks-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+
+    .tick {
+      position: absolute;
+      width: 2px;
+      height: 6px;
+      background-color: #64748b;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 2;
+
+      &.marked {
+        background-color: #94a3b8;
+        height: 10px;
+        width: 2px;
+        z-index: 3;
+      }
+    }
+
+    .range-input {
+      position: absolute;
+      width: calc(100% + 20px);
+      left: -10px;
+      height: 100%;
+      margin: 0;
+      appearance: none;
+      background: transparent;
       outline: none;
       cursor: pointer;
-      transition: background 0.2s;
-
-      &:hover {
-        background: #475569;
-      }
+      z-index: 10;
 
       &::-webkit-slider-thumb {
         appearance: none;
@@ -54,6 +90,7 @@
         cursor: pointer;
         transition: transform 0.1s, background 0.2s;
         box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        margin-top: 0;
       }
 
       &:active::-webkit-slider-thumb {
@@ -80,6 +117,20 @@
         transform: scale(1.1);
         background: #60a5fa;
       }
+    }
+  }
+
+  .limits {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.1rem;
+    padding: 0;
+
+    .limit-label {
+      font-family: monospace;
+      font-size: 0.65rem;
+      color: #475569;
+      user-select: none;
     }
   }
 }
