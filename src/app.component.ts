@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { OrbitalViewerComponent } from './components/orbital-viewer.component';
 import { SliderComponent } from './components/slider.component';
 import { SwitchComponent } from './components/switch.component';
-import { OrbitalMathService, OrbitalPreset, OrbitalGroup, ORBITAL_LABELS } from './services/orbital-math.service';
+import { OrbitalMathService, OrbitalPreset, OrbitalGroup, ORBITAL_LABELS, QuantumState } from './services/orbital-math.service';
 import { DEFAULT_SETTINGS } from './services/orbital-rendering.service';
 
 @Component({
@@ -19,6 +19,12 @@ export class AppComponent {
   n = signal(2);
   l = signal(1);
   m = signal(0);
+
+  currentState = computed<QuantumState>(() => ({
+    n: this.n(),
+    l: this.l(),
+    m: this.m()
+  }));
 
   resolution = signal(DEFAULT_SETTINGS.resolution);
   glow = signal(DEFAULT_SETTINGS.glow);

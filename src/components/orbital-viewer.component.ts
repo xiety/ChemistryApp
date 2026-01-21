@@ -1,7 +1,7 @@
 import { Component, ElementRef, OnDestroy, AfterViewInit, ViewChild, effect, input, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { OrbitalMathService } from '../services/orbital-math.service';
-import { OrbitalRenderingService, DEFAULT_SETTINGS } from '../services/orbital-rendering.service';
+import { OrbitalMathService, QuantumState } from '../services/orbital-math.service';
+import { OrbitalRenderingService, DEFAULT_SETTINGS, ColorTheme } from '../services/orbital-rendering.service';
 
 @Component({
   selector: 'app-orbital-viewer',
@@ -17,9 +17,7 @@ import { OrbitalRenderingService, DEFAULT_SETTINGS } from '../services/orbital-r
 export class OrbitalViewerComponent implements AfterViewInit, OnDestroy {
   @ViewChild('rendererContainer', { static: true }) container!: ElementRef<HTMLDivElement>;
 
-  n = input.required<number>();
-  l = input.required<number>();
-  m = input.required<number>();
+  state = input.required<QuantumState>();
   resolution = input.required<number>();
 
   showCloud = input<boolean>(DEFAULT_SETTINGS.showCloud);
@@ -31,7 +29,7 @@ export class OrbitalViewerComponent implements AfterViewInit, OnDestroy {
   threshold = input<number>(DEFAULT_SETTINGS.threshold);
   opacity = input<number>(DEFAULT_SETTINGS.opacity);
   glow = input<number>(DEFAULT_SETTINGS.glow);
-  colorTheme = input<number>(DEFAULT_SETTINGS.colorTheme);
+  colorTheme = input<ColorTheme>(DEFAULT_SETTINGS.colorTheme);
   contourDensity = input<number>(DEFAULT_SETTINGS.contourDensity);
   rotationSpeed = input<number>(DEFAULT_SETTINGS.rotationSpeed);
 
@@ -54,24 +52,21 @@ export class OrbitalViewerComponent implements AfterViewInit, OnDestroy {
     effect(() => {
       if (!this.viewReady()) return;
 
-      const n = this.n();
-      const l = this.l();
-      const m = this.m();
+      const state = this.state();
       const resolution = this.resolution();
 
-      const threshold = this.threshold();
-
-      const data = this.mathService.generateData(n, l, m, resolution);
-      this.renderService.updateData(data, resolution, threshold);
+      if (this.showMesh()) {
+        const threshold = this.threshold();
+        const data = this.mathService.generateData(state, resolution);
+        this.renderService.updateData(data, resolution, threshold);
+      }
     });
 
     effect(() => {
       if (!this.viewReady()) return;
 
       this.renderService.updateSettings({
-        n: this.n(),
-        l: this.l(),
-        m: this.m(),
+        state: this.state(),
         opacity: this.opacity(),
         glow: this.glow(),
         colorTheme: this.colorTheme(),

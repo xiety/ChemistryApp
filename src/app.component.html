@@ -2,7 +2,7 @@
 
   <div class="viewer-pane">
     <div class="viewer-background">
-      <app-orbital-viewer [n]="n()" [l]="l()" [m]="m()" [resolution]="resolution()" [glow]="glow()"
+      <app-orbital-viewer [state]="currentState()" [resolution]="resolution()" [glow]="glow()"
         [colorTheme]="colorTheme()" [sliceX]="sliceX()" [sliceY]="sliceY()" [sliceZ]="sliceZ()"
         [showIsoLines]="showIsoLines()" [showSurface]="showSurface()" [showCloud]="showCloud()" [showMesh]="showMesh()"
         [showStats]="showStats()" [contourDensity]="contourDensity()"
@@ -108,11 +108,9 @@
           <div class="stack-small">
             <div class="segment-group">
               <button (click)="colorTheme.set(0)" class="btn-segment" [class.active]="colorTheme() === 0"
-                [class.inactive]="colorTheme() !== 0">Standard</button>
+                [class.inactive]="colorTheme() !== 0">Phase</button>
               <button (click)="colorTheme.set(1)" class="btn-segment" [class.active]="colorTheme() === 1"
-                [class.inactive]="colorTheme() !== 1">Cyber</button>
-              <button (click)="colorTheme.set(2)" class="btn-segment" [class.active]="colorTheme() === 2"
-                [class.inactive]="colorTheme() !== 2">Heatmap</button>
+                [class.inactive]="colorTheme() !== 1">Heatmap</button>
             </div>
 
             <div class="grid-2">

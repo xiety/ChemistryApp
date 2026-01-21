@@ -2,10 +2,13 @@ import { Injectable } from '@angular/core';
 
 export const ORBITAL_LABELS = ['s', 'p', 'd', 'f', 'g', 'h', 'i'];
 
-export interface OrbitalPreset {
+export interface QuantumState {
   n: number;
   l: number;
   m: number;
+}
+
+export interface OrbitalPreset extends QuantumState {
   name: string;
 }
 
@@ -51,27 +54,34 @@ export class OrbitalMathService {
     return groups;
   }
 
-  generateData(n: number, l: number, m: number, size: number): Float32Array {
-    const totalSize = size * size * size;
-    const data = new Float32Array(totalSize);
-
-    const baseScale = 12.0 + (n * n * 4.0);
-    const compaction = 1.0 - (l * 0.04);
-    const boxScale = baseScale * Math.max(0.6, compaction);
-
-    const invSizeMinus1 = 1.0 / (size - 1);
-
+  getNormalizationConstants(state: QuantumState) {
+    const { n, l, m } = state;
     const factNMinusLMinus1 = this.factorial(n - l - 1);
     const factNPlusL = this.factorial(n + l);
     const term1 = Math.pow(2.0 / n, 3.0);
     const term2 = factNMinusLMinus1 / (2.0 * n * factNPlusL);
     const radNorm = Math.sqrt(term1 * term2);
 
-    const factLMinusM = this.factorial(l - m);
-    const factLPlusM = this.factorial(l + m);
+    const factLMinusM = this.factorial(l - Math.abs(m));
+    const factLPlusM = this.factorial(l + Math.abs(m));
     const angNorm = Math.sqrt(((2.0 * l + 1.0) / (4.0 * Math.PI)) * (factLMinusM / factLPlusM));
 
+    const baseScale = 12.0 + (n * n * 4.0);
+    const compaction = 1.0 - (l * 0.04);
+    const boxScale = baseScale * Math.max(0.6, compaction);
+
+    return { radNorm, angNorm, boxScale };
+  }
+
+  generateData(state: QuantumState, size: number): Float32Array {
+    const { n } = state;
+    const totalSize = size * size * size;
+    const data = new Float32Array(totalSize);
+
+    const { radNorm, angNorm, boxScale } = this.getNormalizationConstants(state);
     const scaleFactor = 4.0 * Math.pow(n, 2.5);
+
+    const invSizeMinus1 = 1.0 / (size - 1);
 
     for (let i = 0; i < totalSize; i++) {
       const zIdx = (i / (size * size)) | 0;
@@ -87,7 +97,7 @@ export class OrbitalMathService {
       const py = v * boxScale;
       const pz = w * boxScale;
 
-      data[i] = this.computePsi(px, py, pz, n, l, m, radNorm, angNorm) * scaleFactor;
+      data[i] = this.computePsi(px, py, pz, state, radNorm, angNorm) * scaleFactor;
     }
 
     this.applyGaussianSmooth(data, size, 2);
@@ -152,7 +162,8 @@ export class OrbitalMathService {
     }
   }
 
-  private computePsi(x: number, y: number, z: number, n: number, l: number, m: number, radNorm: number, angNorm: number): number {
+  private computePsi(x: number, y: number, z: number, state: QuantumState, radNorm: number, angNorm: number): number {
+    const { n, l, m } = state;
     const r2 = x * x + y * y + z * z;
     if (r2 < 1e-9) return 0;
     const r = Math.sqrt(r2);
