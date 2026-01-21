@@ -8,22 +8,16 @@
   position: relative;
   width: 100%;
   height: 100%;
-  background-color: #000000;
+  background-color: black;
   touch-action: none;
   overflow: hidden;
+}
 
-  .renderer-target {
-    width: 100%;
-    height: 100%;
-    cursor: move;
-    outline: none;
-    overflow: hidden;
-    display: block;
-
-    canvas {
-      display: block;
-      width: 100%;
-      height: 100%;
-    }
-  }
+.renderer-canvas {
+  width: 100%;
+  height: 100%;
+  cursor: move;
+  outline: none;
+  overflow: hidden;
+  display: block;
 }

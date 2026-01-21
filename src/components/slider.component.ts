@@ -5,40 +5,7 @@ import { CommonModule } from '@angular/common';
   selector: 'app-slider',
   standalone: true,
   imports: [CommonModule],
-  template: `
-    <div class="slider-container">
-      <div class="header">
-        <span class="label">{{ label() }}</span>
-        <span class="value">{{ formattedValue() }}</span>
-      </div>
-
-      <div class="input-wrapper">
-        <div class="track"></div>
-        <div class="ticks-container">
-          @for (pos of generatedTicks(); track $index) {
-            <div class="tick" [style.left]="pos"></div>
-          }
-
-          @for (pos of specialMarkers(); track $index) {
-            <div class="tick marked" [style.left]="pos"></div>
-          }
-        </div>
-
-        <input type="range" 
-          [min]="min()" 
-          [max]="max()" 
-          [step]="step()" 
-          [value]="value()" 
-          (input)="onInput($event)"
-          class="range-input">
-      </div>
-
-      <div class="limits">
-        <span class="limit-label">{{ formatValue(min()) }}</span>
-        <span class="limit-label">{{ formatValue(max()) }}</span>
-      </div>
-    </div>
-  `,
+  templateUrl: './slider.component.html',
   styleUrl: './slider.component.css'
 })
 export class SliderComponent {
@@ -57,6 +24,16 @@ export class SliderComponent {
     const val = this.value();
     const fmt = this.valueFormatter();
     return fmt ? fmt(val) : val;
+  });
+
+  thumbPosition = computed(() => {
+    const min = this.min();
+    const max = this.max();
+    const val = this.value();
+    const range = max - min;
+    if (range <= 0) return '0%';
+    const percent = ((val - min) / range) * 100;
+    return `calc(${percent}% - 10px)`;
   });
 
   generatedTicks = computed(() => {

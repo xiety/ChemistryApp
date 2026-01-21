@@ -1,17 +1,11 @@
 import { Component, input, output } from '@angular/core';
+import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-switch',
   standalone: true,
-  template: `
-    <label class="switch-container">
-      <span class="label-text">{{ label() }}</span>
-      <input type="checkbox" [checked]="checked()" (change)="onChange($event)">
-      <div class="switch-track">
-        <div class="switch-thumb"></div>
-      </div>
-    </label>
-  `,
+  imports: [CommonModule],
+  templateUrl: './switch.component.html',
   styleUrl: './switch.component.css'
 })
 export class SwitchComponent {

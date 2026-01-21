@@ -1,0 +1,143 @@
+<div class="sidebar-content">
+  <div class="navigation-tabs">
+    <button class="tab-item" [class.is-active]="state.activeTab() === 'orbitals'"
+      (click)="state.activeTab.set('orbitals')">
+      Orbitals
+      @if (state.activeTab() === 'orbitals') { <div class="active-indicator"></div> }
+    </button>
+    <button class="tab-item" [class.is-active]="state.activeTab() === 'rendering'"
+      (click)="state.activeTab.set('rendering')">
+      Rendering
+      @if (state.activeTab() === 'rendering') { <div class="active-indicator"></div> }
+    </button>
+  </div>
+  <div class="scrollable-area">
+    @if (state.activeTab() === 'orbitals') {
+    <div class="shell-list">
+      @for (group of state.orbitalGroups(); track group.n) {
+      <div class="shell-row">
+        <div class="shell-number">{{group.n}}</div>
+        <div class="orbital-group">
+          @for (p of group.orbitals; track p.name) {
+          <button (click)="state.selectPreset(p)" class="orbital-preset" [class.is-active]="state.isPresetActive(p)"
+            [class.is-inactive]="!state.isPresetActive(p)" [ngClass]="getOrbitalTypeClass(p.l)">
+            {{ p.name }}
+          </button>
+          }
+        </div>
+      </div>
+      }
+    </div>
+    <div class="control-section">
+      <span class="section-title spaced-top">Quantum Numbers</span>
+      <div class="quantum-controls">
+        <app-slider label="Principal (n)" [value]="state.n()" [min]="1" [max]="7" (valueChange)="state.n.set($event)"
+          [valueFormatter]="formatInt" />
+        <app-slider label="Azimuthal (l)" [value]="state.l()" [min]="0" [max]="state.n() - 1"
+          (valueChange)="state.l.set($event)" [valueFormatter]="formatL" />
+        <app-slider label="Magnetic (m)" [value]="state.m()" [min]="0" [max]="state.l()"
+          (valueChange)="state.m.set($event)" [valueFormatter]="formatInt" />
+      </div>
+    </div>
+    }
+    @if (state.activeTab() === 'rendering') {
+    <div class="rendering-controls">
+      <div class="control-group">
+        <span class="section-title">Color Mode</span>
+        <div class="segmented-control">
+          <button (click)="state.colorTheme.set(0)" class="control-option"
+            [class.is-selected]="state.colorTheme() === 0" [class.is-unselected]="state.colorTheme() !== 0">
+            Phase
+          </button>
+          <button (click)="state.colorTheme.set(1)" class="control-option"
+            [class.is-selected]="state.colorTheme() === 1" [class.is-unselected]="state.colorTheme() !== 1">
+            Heatmap
+          </button>
+        </div>
+      </div>
+      <div class="control-group">
+        <span class="section-title">Layers</span>
+        <div class="grid-layout cols-2">
+          <button class="layer-card" [class.is-active]="state.showCloud()" [class.is-inactive]="!state.showCloud()"
+            (click)="toggleCloud()">
+            <div class="status-dot" [class.status-on]="state.showCloud()" [class.status-off]="!state.showCloud()"></div>
+            Cloud
+          </button>
+          <button class="layer-card" [class.is-active]="state.showSurface()" [class.is-inactive]="!state.showSurface()"
+            (click)="toggleSurface()">
+            <div class="status-dot" [class.status-on]="state.showSurface()" [class.status-off]="!state.showSurface()">
+            </div>
+            Iso-Surface
+          </button>
+          <button class="layer-card" [class.is-active]="state.showIsoLines()"
+            [class.is-inactive]="!state.showIsoLines()" (click)="toggleIsoLines()">
+            <div class="status-dot" [class.status-on]="state.showIsoLines()" [class.status-off]="!state.showIsoLines()">
+            </div>
+            Contours
+          </button>
+          <button class="layer-card" [class.is-active]="state.showMesh()" [class.is-inactive]="!state.showMesh()"
+            (click)="toggleMesh()">
+            <div class="status-dot" [class.status-on]="state.showMesh()" [class.status-off]="!state.showMesh()"></div>
+            Mesh
+          </button>
+        </div>
+      </div>
+
+      <div class="separator"></div>
+
+      <div class="sliders-section">
+
+        @if (state.showMesh()) {
+        <app-switch label="Wireframe" [checked]="state.wireframe()" (checkedChange)="state.wireframe.set($event)" />
+        <app-slider label="Resolution" [value]="state.resolution()" [min]="32" [max]="256" [step]="32"
+          (valueChange)="state.resolution.set($event)" [valueFormatter]="formatInt" />
+        }
+
+        @if (state.showCloud() || state.showSurface() || state.showIsoLines()) {
+        <app-slider label="Dithering" [value]="state.dithering()" [min]="0" [max]="1.0" [step]="0.05"
+          (valueChange)="state.dithering.set($event)" [valueFormatter]="formatFloat2" />
+
+        <app-slider label="Ray Steps" [value]="state.rayStepCount()" [min]="32" [max]="256" [step]="16"
+          (valueChange)="state.rayStepCount.set($event)" [valueFormatter]="formatInt" />
+        }
+
+        @if(state.showCloud()) {
+        <app-slider label="Cloud Glow" [value]="state.glow()" [min]="0.5" [max]="3.0" [step]="0.1"
+          (valueChange)="state.glow.set($event)" [valueFormatter]="formatFloat1" />
+        }
+
+        @if (state.showIsoLines()) {
+        <app-slider label="Contour Density" [value]="state.contourDensity()" [min]="10" [max]="100" [step]="5"
+          (valueChange)="state.contourDensity.set($event)" [valueFormatter]="formatInt" />
+        }
+
+        @if (state.showSurface() || state.showMesh()) {
+        <app-slider label="Opacity" [value]="state.opacity()" [min]="0.1" [max]="1.0" [step]="0.05"
+          (valueChange)="state.opacity.set($event)" [valueFormatter]="formatFloat2" />
+        <app-slider label="Surface Threshold" [value]="state.surfaceThreshold()" [min]="0.01" [max]="1.0" [step]="0.01"
+          (valueChange)="state.surfaceThreshold.set($event)" [valueFormatter]="formatFloat2" />
+        }
+
+        <div class="separator"></div>
+
+        <app-slider label="Slice X" [value]="state.sliceX()" [min]="-1.0" [max]="1.0" [step]="0.05"
+          (valueChange)="state.sliceX.set($event)" [valueFormatter]="formatFloat2" />
+        <app-slider label="Slice Y" [value]="state.sliceY()" [min]="-1.0" [max]="1.0" [step]="0.05"
+          (valueChange)="state.sliceY.set($event)" [valueFormatter]="formatFloat2" />
+        <app-slider label="Slice Z" [value]="state.sliceZ()" [min]="-1.0" [max]="1.0" [step]="0.05"
+          (valueChange)="state.sliceZ.set($event)" [valueFormatter]="formatFloat2" />
+
+        <div class="separator"></div>
+
+        <app-switch label="Auto Rotate" [checked]="state.autoRotate()" (checkedChange)="state.autoRotate.set($event)" />
+        <app-slider label="Speed" [value]="state.rotationSpeed()" [min]="-2.0" [max]="2.0" [step]="0.1"
+          (valueChange)="state.rotationSpeed.set($event)" [markers]="[0]" [valueFormatter]="formatFloat1" />
+        <app-switch label="Show Stats" [checked]="state.showStats()" (checkedChange)="state.showStats.set($event)" />
+      </div>
+    </div>
+    }
+    <a class="source-link" href="https://github.com/xiety/ChemistryApp" target="_blank">
+      https://github.com/xiety/ChemistryApp
+    </a>
+  </div>
+</div>

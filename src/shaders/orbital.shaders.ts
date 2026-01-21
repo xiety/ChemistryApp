@@ -2,90 +2,97 @@ const QUANTUM_MATH = `
   const float PI = 3.14159265359;
 
   float laguerre(int n, int alpha, float x) {
-    float result = 0.0;
+    float result = 1.0;
+    float fAlpha = float(alpha);
 
-    if (n < 0) {
-        result = 0.0;
-    } else if (n == 0) {
-        result = 1.0;
+    if (n == 0) {
+      result = 1.0;
+    } else if (n == 1) {
+      result = 1.0 + fAlpha - x;
     } else {
-        float fAlpha = float(alpha);
-        float L_curr = 1.0 + fAlpha - x;
+      float L_prev = 1.0;
+      float L_curr = 1.0 + fAlpha - x;
 
-        if (n == 1) {
-            result = L_curr;
-        } else {
-            float L_prev = 1.0;
-
-            for (int i = 2; i <= 8; i++) {
-                if (i <= n) {
-                    float k = float(i) - 1.0;
-                    float L_next = ((2.0 * k + 1.0 + fAlpha - x) * L_curr - (k + fAlpha) * L_prev) / (k + 1.0);
-                    L_prev = L_curr;
-                    L_curr = L_next;
-                }
-            }
-            result = L_curr;
+      for (int k = 1; k < 8; k++) {
+        if (k < n) {
+          float fk = float(k);
+          float k1 = fk + 1.0;
+          float term1 = (2.0 * fk + 1.0 + fAlpha - x) * L_curr;
+          float term2 = (fk + fAlpha) * L_prev;
+          float L_next = (term1 - term2) / k1;
+          L_prev = L_curr;
+          L_curr = L_next;
         }
+      }
+      result = L_curr;
     }
     return result;
   }
 
   float legendre(int l, int m, float x) {
-    x = clamp(x, -1.0, 1.0);
     float result = 0.0;
+    int absM = abs(m);
 
-    float pmm = 1.0;
-    if (m > 0) {
-      float somx2 = sqrt(max(0.0, (1.0 - x) * (1.0 + x)));
-      float fact = 1.0;
-      for (int i = 1; i <= 8; i++) {
-         if (i <= m) {
-             pmm *= -fact * somx2;
-             fact += 2.0;
-         }
-      }
-    }
+    if (absM <= l) {
+      float pmm = 1.0;
 
-    if (l == m) {
-        result = pmm;
-    } else {
-        float pmm1 = x * (2.0 * float(m) + 1.0) * pmm;
-
-        if (l == m + 1) {
-            result = pmm1;
-        } else {
-            float pl = 0.0;
-            float p_prev = pmm1;
-            float p_prev2 = pmm;
-
-            for (int ll = 0; ll <= 8; ll++) {
-                int currentL = m + 2 + ll;
-                if (currentL <= l) {
-                   pl = (x * (2.0 * float(currentL) - 1.0) * p_prev - (float(currentL) + float(m) - 1.0) * p_prev2) / float(currentL - m);
-                   p_prev2 = p_prev;
-                   p_prev = pl;
-                }
-            }
-            result = p_prev;
+      if (absM > 0) {
+        float somx2 = sqrt(max(0.0, (1.0 - x) * (1.0 + x)));
+        float fact = 1.0;
+        for (int i = 1; i <= 8; i++) {
+          if (i <= absM) {
+            pmm *= -fact * somx2;
+            fact += 2.0;
+          }
         }
+      }
+
+      if (l == absM) {
+        result = pmm;
+      } else {
+        float pmm1 = x * (2.0 * float(absM) + 1.0) * pmm;
+        if (l == absM + 1) {
+          result = pmm1;
+        } else {
+          float p_prev = pmm1;
+          float p_prev2 = pmm;
+          float pl = 0.0;
+
+          for (int ll = 0; ll <= 8; ll++) {
+            int currentL = absM + 2 + ll;
+            if (currentL <= l) {
+              float fL = float(currentL);
+              float term1 = x * (2.0 * fL - 1.0) * p_prev;
+              float term2 = (fL + float(absM) - 1.0) * p_prev2;
+              pl = (term1 - term2) / (fL - float(absM));
+
+              p_prev2 = p_prev;
+              p_prev = pl;
+            }
+          }
+          result = pl;
+        }
+      }
     }
     return result;
   }
 
-  float getWavefunctionScaled(vec3 p, int n, int l, int m, float boxScale, float radNorm, float angNorm) {
-    float result = 0.0;
+  float getWavefunction(vec3 p, int n, int l, int m, float boxScale, float radNorm, float angNorm) {
+    float val = 0.0;
 
     if (n > 0) {
         float fN = float(n);
         float fL = float(l);
 
         vec3 pos = p * boxScale;
-
         float r = length(pos);
 
-        if (r <= (7.0 * fN * fN + 50.0) && r >= 1e-6) {
-            float theta = acos(clamp(pos.z / r, -1.0, 1.0));
+        float effectiveRad = 12.0 + fN * fN * 4.0;
+
+        if (r <= effectiveRad) {
+            float safeR = r + 1e-20;
+
+            float cosTheta = clamp(pos.z / safeR, -1.0, 1.0);
             float phi = atan(pos.y, pos.x);
 
             float rho = (2.0 * r) / fN;
@@ -93,7 +100,7 @@ const QUANTUM_MATH = `
             float L_val = laguerre(n - l - 1, 2 * l + 1, rho);
             float R = radNorm * pow(rho, fL) * exp(-rho * 0.5) * L_val;
 
-            float Y_val = legendre(l, m, cos(theta));
+            float Y_val = legendre(l, m, cosTheta);
 
             float Y = 0.0;
             if (m == 0) {
@@ -107,12 +114,10 @@ const QUANTUM_MATH = `
                 }
             }
 
-            float scaleFactor = 4.0 * pow(fN, 2.5);
-            result = R * Y * scaleFactor;
+            val = R * Y;
         }
     }
-
-    return result;
+    return val;
   }
 `;
 
@@ -127,6 +132,15 @@ export const COMMON_COLOR_FN = `
       }
 
       return texture2D(uGradientMap, vec2(t, 0.5)).rgb;
+  }
+`;
+
+export const LIGHTING_MATH = `
+  vec3 getLighting(vec3 col, vec3 normal, vec3 viewDir, vec3 lightDir) {
+      float diff = max(dot(normal, lightDir), 0.0);
+      vec3 halfDir = normalize(lightDir + viewDir);
+      float spec = pow(max(dot(normal, halfDir), 0.0), 32.0);
+      return col * (0.3 + 0.7 * diff) + vec3(0.3) * spec;
   }
 `;
 
@@ -180,6 +194,7 @@ export const FRAGMENT_SHADER = `
 
   ${QUANTUM_MATH}
   ${COMMON_COLOR_FN}
+  ${LIGHTING_MATH}
 
   float random(vec2 p) {
     return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
@@ -189,12 +204,12 @@ export const FRAGMENT_SHADER = `
       float result = 0.0;
 
       if (uMix < 0.001) {
-          result = getWavefunctionScaled(p, uPrevN, uPrevL, uPrevM, uPrevScale, uPrevRadNorm, uPrevAngNorm);
+          result = getWavefunction(p, uPrevN, uPrevL, uPrevM, uPrevScale, uPrevRadNorm, uPrevAngNorm);
       } else if (uMix > 0.999) {
-          result = getWavefunctionScaled(p, uN, uL, uM, uScale, uRadNorm, uAngNorm);
+          result = getWavefunction(p, uN, uL, uM, uScale, uRadNorm, uAngNorm);
       } else {
-          float valPrev = getWavefunctionScaled(p, uPrevN, uPrevL, uPrevM, uPrevScale, uPrevRadNorm, uPrevAngNorm);
-          float valTarget = getWavefunctionScaled(p, uN, uL, uM, uScale, uRadNorm, uAngNorm);
+          float valPrev = getWavefunction(p, uPrevN, uPrevL, uPrevM, uPrevScale, uPrevRadNorm, uPrevAngNorm);
+          float valTarget = getWavefunction(p, uN, uL, uM, uScale, uRadNorm, uAngNorm);
           result = mix(valPrev, valTarget, smoothstep(0.0, 1.0, uMix));
       }
 
@@ -203,24 +218,19 @@ export const FRAGMENT_SHADER = `
 
   vec3 getNormal(vec3 p) {
     float eps = 0.005;
+    float val = getInterpolatedWavefunction(p);
+    float x1 = getInterpolatedWavefunction(p + vec3(eps, 0.0, 0.0));
+    float y1 = getInterpolatedWavefunction(p + vec3(0.0, eps, 0.0));
+    float z1 = getInterpolatedWavefunction(p + vec3(0.0, 0.0, eps));
 
-    float x1 = abs(getInterpolatedWavefunction(p + vec3(eps, 0.0, 0.0)));
-    float x2 = abs(getInterpolatedWavefunction(p - vec3(eps, 0.0, 0.0)));
-    float y1 = abs(getInterpolatedWavefunction(p + vec3(0.0, eps, 0.0)));
-    float y2 = abs(getInterpolatedWavefunction(p - vec3(0.0, eps, 0.0)));
-    float z1 = abs(getInterpolatedWavefunction(p + vec3(0.0, 0.0, eps)));
-    float z2 = abs(getInterpolatedWavefunction(p - vec3(0.0, 0.0, eps)));
+    float dx = abs(x1) - abs(val);
+    float dy = abs(y1) - abs(val);
+    float dz = abs(z1) - abs(val);
 
-    vec3 grad = vec3(x1 - x2, y1 - y2, z1 - z2);
-    if (dot(grad, grad) < 1e-12) return vec3(0.0, 1.0, 0.0);
+    vec3 grad = vec3(dx, dy, dz);
+    if (dot(grad, grad) < 1e-12) return vec3(0.0, 0.0, 1.0);
+
     return normalize(-grad);
-  }
-
-  vec3 getLighting(vec3 col, vec3 normal, vec3 viewDir, vec3 lightDir) {
-      float diff = max(dot(normal, lightDir), 0.0);
-      vec3 halfDir = normalize(lightDir + viewDir);
-      float spec = pow(max(dot(normal, halfDir), 0.0), 32.0);
-      return col * (0.3 + 0.7 * diff) + vec3(0.3) * spec;
   }
 
   void main() {
@@ -229,6 +239,9 @@ export const FRAGMENT_SHADER = `
     if (abs(rayDir.x) < 1e-6) rayDir.x = 1e-6;
     if (abs(rayDir.y) < 1e-6) rayDir.y = 1e-6;
     if (abs(rayDir.z) < 1e-6) rayDir.z = 1e-6;
+
+    vec3 viewDir = -rayDir;
+    vec3 lightDir = normalize(vec3(5.0, 10.0, 7.0));
 
     vec3 boxMin = vec3(-1.0);
     vec3 boxMax = vec3(uSliceX, uSliceY, uSliceZ);
@@ -243,7 +256,9 @@ export const FRAGMENT_SHADER = `
     float tNear = max(max(t1.x, t1.y), t1.z);
     float tFar = min(min(t2.x, t2.y), t2.z);
 
-    if (tNear > tFar || tFar < 0.0) discard;
+    if (tNear > tFar) discard;
+
+    float tStart = max(tNear, 0.0);
 
     vec3 normalExit = vec3(0.0);
     if (t2.x <= t2.y && t2.x <= t2.z) normalExit = vec3(-sign(rayDir.x), 0.0, 0.0);
@@ -255,9 +270,7 @@ export const FRAGMENT_SHADER = `
     else if (t1.y >= t1.z) normalEntry = vec3(0.0, -sign(rayDir.y), 0.0);
     else normalEntry = vec3(0.0, 0.0, -sign(rayDir.z));
 
-    float tStart = max(tNear, 0.0);
     float nominalStepSize = 3.5 / uRaySteps;
-
     if (uDithering > 0.01) {
        tStart += random(gl_FragCoord.xy) * nominalStepSize * uDithering;
     }
@@ -270,9 +283,6 @@ export const FRAGMENT_SHADER = `
     bool renderIso = uIsoLines > 0.5;
     bool renderCloud = uShowCloud > 0.5;
     bool renderSurface = uShowSurface > 0.5;
-
-    vec3 lightDir = normalize(vec3(5.0, 10.0, 7.0));
-    vec3 viewDir = -rayDir;
 
     float prevVal = getInterpolatedWavefunction(p);
     float prevAbsVal = abs(prevVal);
@@ -290,14 +300,12 @@ export const FRAGMENT_SHADER = `
 
     for(int i = 0; i < 256; i++) {
       if (i >= maxSteps) break;
+      if (colorAcc.a >= 0.99) break;
 
-      if (dist >= tFar - 1e-6) break;
+      float maxStep = tFar - dist;
+      if (maxStep <= 1e-5) break;
 
-      float currentStep = nominalStepSize;
-
-      if (dist + currentStep > tFar) {
-         currentStep = tFar - dist;
-      }
+      float currentStep = min(nominalStepSize, maxStep);
 
       p += rayDir * currentStep;
       dist += currentStep;
@@ -307,38 +315,52 @@ export const FRAGMENT_SHADER = `
       float density = val * val;
       bool isInside = absVal > uThreshold;
 
-      vec3 col = getOrbitalColor(val);
-
       if (renderSurface) {
-        if (isInside != wasInside) {
+        bool gapJump = (isInside && wasInside && (val * prevVal < 0.0));
 
-          float t = (uThreshold - prevAbsVal) / (absVal - prevAbsVal + 1e-6);
-          float distHit = (dist - currentStep) + currentStep * t;
+        if (gapJump) {
+            vec3 pMid = p - rayDir * (currentStep * 0.5);
+            vec3 nMid = getNormal(pMid);
 
-          vec3 hitPos = uCameraPos + distHit * rayDir;
-          vec3 normal = getNormal(hitPos);
+            float alpha = uOpacity;
 
-          if (!isInside && wasInside) normal = -normal;
+            vec3 colExit = getOrbitalColor(prevVal);
+            vec3 lightExit = getLighting(colExit, -nMid, viewDir, lightDir);
+            colorAcc.rgb += (1.0 - colorAcc.a) * alpha * lightExit;
+            colorAcc.a += (1.0 - colorAcc.a) * alpha;
 
-          vec3 lighting = getLighting(col, normal, viewDir, lightDir);
-          float alpha = uOpacity;
-          colorAcc.rgb += (1.0 - colorAcc.a) * alpha * lighting;
-          colorAcc.a += (1.0 - colorAcc.a) * alpha;
-        }
+            if (colorAcc.a < 0.99) {
+                vec3 colEntry = getOrbitalColor(val);
+                vec3 lightEntry = getLighting(colEntry, nMid, viewDir, lightDir);
+                colorAcc.rgb += (1.0 - colorAcc.a) * alpha * lightEntry;
+                colorAcc.a += (1.0 - colorAcc.a) * alpha;
+            }
 
-        if (dist >= tFar - 1e-5 && isInside) {
-            vec3 lighting = getLighting(col, normalExit, viewDir, lightDir);
+        } else if (isInside != wasInside) {
+            float t = (uThreshold - prevAbsVal) / (absVal - prevAbsVal + 1e-9);
+            t = clamp(t, 0.0, 1.0);
+
+            float distHit = (dist - currentStep) + currentStep * t;
+            vec3 hitPos = uCameraPos + distHit * rayDir;
+
+            vec3 normal = getNormal(hitPos);
+
+            if (wasInside) normal = -normal;
+
+            vec3 col = getOrbitalColor(mix(prevVal, val, t));
+            vec3 lighting = getLighting(col, normal, viewDir, lightDir);
+
             float alpha = uOpacity;
             colorAcc.rgb += (1.0 - colorAcc.a) * alpha * lighting;
             colorAcc.a += (1.0 - colorAcc.a) * alpha;
         }
-
         wasInside = isInside;
       }
 
       if (renderCloud && density > 0.0001) {
         float alpha = density * 50.0 * uGlow * currentStep;
         alpha = clamp(alpha, 0.0, 1.0);
+        vec3 col = getOrbitalColor(val);
         colorAcc.rgb += (1.0 - colorAcc.a) * alpha * col;
         colorAcc.a += (1.0 - colorAcc.a) * alpha;
       }
@@ -347,6 +369,7 @@ export const FRAGMENT_SHADER = `
         float contour = sin(density * uContourFreq);
         float line = smoothstep(0.95, 1.0, contour);
         if (line > 0.01) {
+          vec3 col = getOrbitalColor(val);
           vec3 emission = col * line * 2.0;
           float lineAlpha = line * 0.5 * currentStep * 10.0;
           colorAcc.rgb += (1.0 - colorAcc.a) * lineAlpha * emission;
@@ -355,6 +378,15 @@ export const FRAGMENT_SHADER = `
       }
 
       prevAbsVal = absVal;
+      prevVal = val;
+    }
+
+    if (renderSurface && wasInside && colorAcc.a < 0.99) {
+        vec3 col = getOrbitalColor(prevVal);
+        vec3 lighting = getLighting(col, normalExit, viewDir, lightDir);
+        float alpha = uOpacity;
+        colorAcc.rgb += (1.0 - colorAcc.a) * alpha * lighting;
+        colorAcc.a += (1.0 - colorAcc.a) * alpha;
     }
 
     if (colorAcc.a < 0.01) discard;

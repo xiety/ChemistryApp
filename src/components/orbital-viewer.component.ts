@@ -1,109 +1,103 @@
-import { Component, ElementRef, OnDestroy, AfterViewInit, ViewChild, effect, input, signal } from '@angular/core';
+import { Component, ElementRef, OnDestroy, AfterViewInit, ViewChild, effect, inject, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { OrbitalMathService, QuantumState } from '../services/orbital-math.service';
-import { OrbitalRenderingService, DEFAULT_SETTINGS, ColorTheme } from '../services/orbital-rendering.service';
+import { OrbitalMathService } from '../services/orbital-math.service';
+import { OrbitalRenderingService } from '../services/orbital-rendering.service';
+import { OrbitalStateService } from '../services/orbital-state.service';
 
 @Component({
   selector: 'app-orbital-viewer',
   standalone: true,
   imports: [CommonModule],
-  template: `
-    <div class="viewer-container">
-      <div #rendererContainer class="renderer-target"></div>
-    </div>
-  `,
+  templateUrl: './orbital-viewer.component.html',
   styleUrl: './orbital-viewer.component.css'
 })
 export class OrbitalViewerComponent implements AfterViewInit, OnDestroy {
   @ViewChild('rendererContainer', { static: true }) container!: ElementRef<HTMLDivElement>;
 
-  state = input.required<QuantumState>();
-  resolution = input.required<number>();
+  private stateService = inject(OrbitalStateService);
+  private mathService = inject(OrbitalMathService);
+  private renderService = inject(OrbitalRenderingService);
 
-  showCloud = input<boolean>(DEFAULT_SETTINGS.showCloud);
-  showIsoLines = input<boolean>(DEFAULT_SETTINGS.showIsoLines);
-  showSurface = input<boolean>(DEFAULT_SETTINGS.showSurface);
-  showMesh = input<boolean>(DEFAULT_SETTINGS.showMesh);
-  showStats = input<boolean>(DEFAULT_SETTINGS.showStats);
-
-  threshold = input<number>(DEFAULT_SETTINGS.threshold);
-  opacity = input<number>(DEFAULT_SETTINGS.opacity);
-  glow = input<number>(DEFAULT_SETTINGS.glow);
-  colorTheme = input<ColorTheme>(DEFAULT_SETTINGS.colorTheme);
-  contourDensity = input<number>(DEFAULT_SETTINGS.contourDensity);
-  rotationSpeed = input<number>(DEFAULT_SETTINGS.rotationSpeed);
-
-  sliceX = input<number>(DEFAULT_SETTINGS.sliceX);
-  sliceY = input<number>(DEFAULT_SETTINGS.sliceY);
-  sliceZ = input<number>(DEFAULT_SETTINGS.sliceZ);
-
-  dithering = input<number>(DEFAULT_SETTINGS.dithering);
-  rayStepCount = input<number>(DEFAULT_SETTINGS.rayStepCount);
-
-  viewReady = signal(false);
+  ready = output<void>();
 
   private resizeObserver: ResizeObserver | null = null;
+  private initTimeout: any;
 
-  constructor(
-    private mathService: OrbitalMathService,
-    private renderService: OrbitalRenderingService
-  ) {
-
+  constructor() {
     effect(() => {
-      if (!this.viewReady()) return;
-
-      const state = this.state();
-      const resolution = this.resolution();
-
-      if (this.showMesh()) {
-        const threshold = this.threshold();
+      if (this.stateService.showMesh()) {
+        const state = this.stateService.currentState();
+        const resolution = this.stateService.resolution();
+        const threshold = this.stateService.surfaceThreshold();
         const data = this.mathService.generateData(state, resolution);
         this.renderService.updateData(data, resolution, threshold);
       }
     });
 
     effect(() => {
-      if (!this.viewReady()) return;
-
-      this.renderService.updateSettings({
-        state: this.state(),
-        opacity: this.opacity(),
-        glow: this.glow(),
-        colorTheme: this.colorTheme(),
-        showIsoLines: this.showIsoLines(),
-        showCloud: this.showCloud(),
-        showSurface: this.showSurface(),
-        showMesh: this.showMesh(),
-        showStats: this.showStats(),
-        contourDensity: this.contourDensity(),
-        rotationSpeed: this.rotationSpeed(),
-        sliceX: this.sliceX(),
-        sliceY: this.sliceY(),
-        sliceZ: this.sliceZ(),
-        threshold: this.threshold(),
-        dithering: this.dithering(),
-        resolution: this.resolution(),
-        rayStepCount: this.rayStepCount()
-      });
+      this.syncSettings();
     });
   }
 
   ngAfterViewInit() {
+    this.initTimeout = setTimeout(async () => {
+      await this.initializeRenderer();
+    }, 50);
+  }
+
+  private async initializeRenderer() {
+    if (!this.container) return;
+
     const el = this.container.nativeElement;
-    this.renderService.init(el, el.clientWidth || 300, el.clientHeight || 300);
-    this.viewReady.set(true);
+    const width = el.clientWidth || 300;
+    const height = el.clientHeight || 300;
+
+    this.renderService.init(el, width, height);
+
+    await this.renderService.precompileAsync();
+
+    this.renderService.start();
+
+    this.syncSettings();
 
     this.resizeObserver = new ResizeObserver(() => {
-      if (this.container && this.viewReady()) {
+      if (this.container) {
         const element = this.container.nativeElement;
         this.renderService.resize(element.clientWidth, element.clientHeight);
       }
     });
 
     this.resizeObserver.observe(el);
+
+    this.ready.emit();
   }
 
   ngOnDestroy() {
     this.resizeObserver?.disconnect();
+    clearTimeout(this.initTimeout);
+  }
+
+  private syncSettings() {
+    this.renderService.updateSettings({
+      state: this.stateService.currentState(),
+      opacity: this.stateService.opacity(),
+      glow: this.stateService.glow(),
+      colorTheme: this.stateService.colorTheme(),
+      showIsoLines: this.stateService.showIsoLines(),
+      showCloud: this.stateService.showCloud(),
+      showSurface: this.stateService.showSurface(),
+      showMesh: this.stateService.showMesh(),
+      wireframe: this.stateService.wireframe(),
+      showStats: this.stateService.showStats(),
+      contourDensity: this.stateService.contourDensity(),
+      rotationSpeed: this.stateService.autoRotate() ? this.stateService.rotationSpeed() : 0,
+      sliceX: this.stateService.sliceX(),
+      sliceY: this.stateService.sliceY(),
+      sliceZ: this.stateService.sliceZ(),
+      threshold: this.stateService.surfaceThreshold(),
+      dithering: this.stateService.dithering(),
+      resolution: this.stateService.resolution(),
+      rayStepCount: this.stateService.rayStepCount()
+    });
   }
 }

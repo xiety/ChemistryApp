@@ -3,134 +3,116 @@
   width: 100%;
 }
 
-.slider-container {
-  padding: 0.25rem 0;
+.slider-wrapper {
+  width: 100%;
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
 
-  .header {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 0.25rem;
-    font-size: 0.875rem;
+.header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+  font-size: 0.875rem;
+}
 
-    .label {
-      color: #cbd5e1;
-      font-weight: 500;
-    }
+.label {
+  color: var(--color-text-body);
+  font-weight: 500;
+}
 
-    .value {
-      font-family: monospace;
-      color: #60a5fa;
-      font-size: 0.75rem;
-    }
-  }
+.value {
+  font-family: var(--font-mono);
+  color: var(--color-accent-light);
+  font-size: 0.75rem;
+}
 
-  .input-wrapper {
-    position: relative;
-    width: 100%;
-    height: 1.25rem;
-    display: flex;
-    align-items: center;
+.track-container {
+  position: relative;
+  width: 100%;
+  height: 1.25rem;
+  display: flex;
+  align-items: center;
+}
 
-    .track {
-      position: absolute;
-      left: 0;
-      width: 100%;
-      height: 6px;
-      background: #334155;
-      border-radius: 8px;
-      top: 50%;
-      transform: translateY(-50%);
-      pointer-events: none;
-    }
+.track {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 0.375rem;
+  background-color: var(--color-bg-element);
+  border-radius: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
 
-    .ticks-container {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-    }
+.ticks-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
 
-    .tick {
-      position: absolute;
-      width: 2px;
-      height: 6px;
-      background-color: #64748b;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      z-index: 2;
+.tick {
+  position: absolute;
+  width: 2px;
+  height: 0.375rem;
+  background-color: var(--color-text-faint);
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+}
 
-      &.marked {
-        background-color: #94a3b8;
-        height: 10px;
-        width: 2px;
-        z-index: 3;
-      }
-    }
+.marker {
+  position: absolute;
+  height: 0.625rem;
+  width: 2px;
+  background-color: var(--color-text-muted);
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 0;
+}
 
-    .range-input {
-      position: absolute;
-      width: calc(100% + 20px);
-      left: -10px;
-      height: 100%;
-      margin: 0;
-      appearance: none;
-      background: transparent;
-      outline: none;
-      cursor: pointer;
-      z-index: 10;
+.range-input {
+  position: absolute;
+  width: calc(100% + 20px);
+  left: -10px;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 10;
+}
 
-      &::-webkit-slider-thumb {
-        appearance: none;
-        width: 20px;
-        height: 20px;
-        border-radius: 50%;
-        background: #3b82f6;
-        cursor: pointer;
-        transition: transform 0.1s, background 0.2s;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        margin-top: 0;
-      }
+.thumb {
+  position: absolute;
+  height: 1.25rem;
+  width: 1.25rem;
+  border-radius: 50%;
+  background-color: var(--color-accent-main);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  transition: transform 0.1s ease-out, background-color 0.1s;
+  z-index: 20;
+}
 
-      &:active::-webkit-slider-thumb {
-        transform: scale(1.1);
-        background: #60a5fa;
-      }
+.track-container:active .thumb {
+  transform: scale(1.1);
+  background-color: var(--color-accent-light);
+}
 
-      &:focus-visible::-webkit-slider-thumb {
-        box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
-      }
+.footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.125rem;
+}
 
-      &::-moz-range-thumb {
-        width: 20px;
-        height: 20px;
-        border: none;
-        border-radius: 50%;
-        background: #3b82f6;
-        cursor: pointer;
-        transition: transform 0.1s, background 0.2s;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-      }
-
-      &:active::-moz-range-thumb {
-        transform: scale(1.1);
-        background: #60a5fa;
-      }
-    }
-  }
-
-  .limits {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 0.1rem;
-    padding: 0;
-
-    .limit-label {
-      font-family: monospace;
-      font-size: 0.65rem;
-      color: #475569;
-      user-select: none;
-    }
-  }
+.min-max {
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  color: var(--color-text-faint);
+  user-select: none;
 }

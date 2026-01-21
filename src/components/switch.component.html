@@ -1,0 +1,7 @@
+<label class="switch-container group">
+  <span class="switch-label">{{ label() }}</span>
+  <input type="checkbox" [checked]="checked()" (change)="onChange($event)" class="hidden-input peer">
+  <div class="track">
+    <div class="knob"></div>
+  </div>
+</label>
