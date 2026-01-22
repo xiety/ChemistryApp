@@ -117,6 +117,25 @@ export class OrbitalMathService {
     return data;
   }
 
+  generateRadialBuffer(state: QuantumState, samples: number, maxRadius: number, radNorm: number): Float32Array {
+    const data = new Float32Array(samples);
+    const { n, l } = state;
+
+    for (let i = 0; i < samples; i++) {
+      const u = i / (samples - 1);
+      const r = u * maxRadius;
+
+      const rho = (2.0 * r) / n;
+      const laguerre = this.laguerre(n - l - 1, 2 * l + 1, rho);
+
+      const radial = radNorm * Math.pow(rho, l) * Math.exp(-rho * 0.5) * laguerre;
+
+      data[i] = radial;
+    }
+
+    return data;
+  }
+
   applyGaussianSmooth(data: Float32Array, size: number, passes: number = 2): void {
     const len = data.length;
     const temp = new Float32Array(len);

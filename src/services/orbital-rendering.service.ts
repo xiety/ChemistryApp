@@ -76,6 +76,11 @@ export class OrbitalRenderingService implements OnDestroy {
   private volumeTexture?: THREE.Data3DTexture;
 
   private gradientMaps: { [key: number]: THREE.DataTexture; } = {};
+
+  private radialTextureCurr!: THREE.DataTexture;
+  private radialTexturePrev!: THREE.DataTexture;
+  private readonly RADIAL_SAMPLES = 4096;
+
   private animationFrameId: number = 0;
   private isInitialized = false;
   private targetState: QuantumState = { n: 2, l: 1, m: 0 };
@@ -90,6 +95,7 @@ export class OrbitalRenderingService implements OnDestroy {
     this.initStats(container);
     this.initScene(container, width, height);
     this.generateGradientMaps();
+    this.initRadialTextures();
     this.setupLights();
     this.setupProceduralBox();
     this.isInitialized = true;
@@ -138,6 +144,34 @@ export class OrbitalRenderingService implements OnDestroy {
     this.controls.minDistance = 0;
     this.controls.maxDistance = 40;
     this.controls.autoRotate = true;
+  }
+
+  private initRadialTextures() {
+    const dataCurr = new Float32Array(this.RADIAL_SAMPLES);
+    this.radialTextureCurr = new THREE.DataTexture(
+      dataCurr,
+      this.RADIAL_SAMPLES,
+      1,
+      THREE.RedFormat,
+      THREE.FloatType
+    );
+    this.radialTextureCurr.minFilter = THREE.LinearFilter;
+    this.radialTextureCurr.magFilter = THREE.LinearFilter;
+    this.radialTextureCurr.wrapS = THREE.ClampToEdgeWrapping;
+    this.radialTextureCurr.needsUpdate = true;
+
+    const dataPrev = new Float32Array(this.RADIAL_SAMPLES);
+    this.radialTexturePrev = new THREE.DataTexture(
+      dataPrev,
+      this.RADIAL_SAMPLES,
+      1,
+      THREE.RedFormat,
+      THREE.FloatType
+    );
+    this.radialTexturePrev.minFilter = THREE.LinearFilter;
+    this.radialTexturePrev.magFilter = THREE.LinearFilter;
+    this.radialTexturePrev.wrapS = THREE.ClampToEdgeWrapping;
+    this.radialTexturePrev.needsUpdate = true;
   }
 
   updateData(data: Float32Array, res: number, threshold: number) {
@@ -201,21 +235,40 @@ export class OrbitalRenderingService implements OnDestroy {
     if (newState.n !== this.targetState.n ||
       newState.l !== this.targetState.l ||
       newState.m !== this.targetState.m) {
+
       const u = this.volMaterial.uniforms;
-      u['uPrevN'].value = u['uN'].value;
+
       u['uPrevL'].value = u['uL'].value;
       u['uPrevM'].value = u['uM'].value;
       u['uPrevScale'].value = u['uScale'].value;
-      u['uPrevRadNorm'].value = u['uRadNorm'].value;
       u['uPrevAngNorm'].value = u['uAngNorm'].value;
+      u['uPrevMaxRad'].value = u['uMaxRad'].value;
+
+      this.radialTexturePrev.image.data!.set(this.radialTextureCurr.image.data!);
+      this.radialTexturePrev.needsUpdate = true;
+
       this.targetState = { ...newState };
       const norms = this.mathService.getNormalizationConstants(this.targetState);
-      u['uN'].value = this.targetState.n;
+
+      const MAX_RAD_MULT = 1.74;
+      const maxRad = norms.boxScale * MAX_RAD_MULT;
+
+      const radialData = this.mathService.generateRadialBuffer(
+        this.targetState,
+        this.RADIAL_SAMPLES,
+        maxRad,
+        norms.radNorm
+      );
+
+      this.radialTextureCurr.image.data!.set(radialData);
+      this.radialTextureCurr.needsUpdate = true;
+
       u['uL'].value = this.targetState.l;
       u['uM'].value = this.targetState.m;
       u['uScale'].value = norms.boxScale;
-      u['uRadNorm'].value = norms.radNorm;
       u['uAngNorm'].value = norms.angNorm;
+      u['uMaxRad'].value = maxRad;
+
       u['uMix'].value = 0.0;
       this.transitionStartTime = performance.now();
       this.isTransitioning = true;
@@ -339,6 +392,18 @@ export class OrbitalRenderingService implements OnDestroy {
   private setupProceduralBox() {
     const geometry = new THREE.BoxGeometry(2, 2, 2);
     const initialNorms = this.mathService.getNormalizationConstants({ n: 2, l: 1, m: 0 });
+    const maxRad = initialNorms.boxScale * 1.74;
+
+    const radialData = this.mathService.generateRadialBuffer(
+      { n: 2, l: 1, m: 0 },
+      this.RADIAL_SAMPLES,
+      maxRad,
+      initialNorms.radNorm
+    );
+    this.radialTextureCurr.image.data!.set(radialData);
+    this.radialTextureCurr.needsUpdate = true;
+    this.radialTexturePrev.image.data!.set(radialData);
+    this.radialTexturePrev.needsUpdate = true;
 
     this.volMaterial = new THREE.ShaderMaterial({
       uniforms: {
@@ -357,18 +422,21 @@ export class OrbitalRenderingService implements OnDestroy {
         uThreshold: { value: DEFAULT_SETTINGS.threshold },
         uOpacity: { value: DEFAULT_SETTINGS.opacity },
         uRaySteps: { value: DEFAULT_SETTINGS.rayStepCount },
-        uN: { value: 2 },
+
         uL: { value: 1 },
         uM: { value: 0 },
         uScale: { value: initialNorms.boxScale },
-        uRadNorm: { value: initialNorms.radNorm },
         uAngNorm: { value: initialNorms.angNorm },
-        uPrevN: { value: 2 },
+        uMaxRad: { value: maxRad },
+        uRadialMap: { value: this.radialTextureCurr },
+
         uPrevL: { value: 1 },
         uPrevM: { value: 0 },
         uPrevScale: { value: initialNorms.boxScale },
-        uPrevRadNorm: { value: initialNorms.radNorm },
         uPrevAngNorm: { value: initialNorms.angNorm },
+        uPrevMaxRad: { value: maxRad },
+        uPrevRadialMap: { value: this.radialTexturePrev },
+
         uMix: { value: 1.0 }
       },
       vertexShader: VERTEX_SHADER,
@@ -438,11 +506,13 @@ export class OrbitalRenderingService implements OnDestroy {
     if (this.isTransitioning && this.volMaterial) {
       const now = performance.now();
       const progress = (now - this.transitionStartTime) / this.transitionDuration;
+
       if (progress >= 1.0) {
         this.volMaterial.uniforms['uMix'].value = 1.0;
         this.isTransitioning = false;
       } else {
-        this.volMaterial.uniforms['uMix'].value = progress;
+        const smoothT = progress * progress * (3.0 - 2.0 * progress);
+        this.volMaterial.uniforms['uMix'].value = smoothT;
       }
     }
 
@@ -463,6 +533,8 @@ export class OrbitalRenderingService implements OnDestroy {
     if (this.volMaterial) this.volMaterial.dispose();
     if (this.meshMaterial) this.meshMaterial.dispose();
     if (this.volumeTexture) this.volumeTexture.dispose();
+    if (this.radialTextureCurr) this.radialTextureCurr.dispose();
+    if (this.radialTexturePrev) this.radialTexturePrev.dispose();
     if (this.stats) this.stats.dom.remove();
     Object.values(this.gradientMaps).forEach(t => t.dispose());
   }

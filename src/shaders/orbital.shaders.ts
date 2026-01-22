@@ -1,33 +1,5 @@
-const QUANTUM_MATH = `
+export const QUANTUM_MATH = `
   const float PI = 3.14159265359;
-
-  float laguerre(int n, int alpha, float x) {
-    float result = 1.0;
-    float fAlpha = float(alpha);
-
-    if (n == 0) {
-      result = 1.0;
-    } else if (n == 1) {
-      result = 1.0 + fAlpha - x;
-    } else {
-      float L_prev = 1.0;
-      float L_curr = 1.0 + fAlpha - x;
-
-      for (int k = 1; k < 8; k++) {
-        if (k < n) {
-          float fk = float(k);
-          float k1 = fk + 1.0;
-          float term1 = (2.0 * fk + 1.0 + fAlpha - x) * L_curr;
-          float term2 = (fk + fAlpha) * L_prev;
-          float L_next = (term1 - term2) / k1;
-          L_prev = L_curr;
-          L_curr = L_next;
-        }
-      }
-      result = L_curr;
-    }
-    return result;
-  }
 
   float legendre(int l, int m, float x) {
     float result = 0.0;
@@ -77,46 +49,39 @@ const QUANTUM_MATH = `
     return result;
   }
 
-  float getWavefunction(vec3 p, int n, int l, int m, float boxScale, float radNorm, float angNorm) {
+  float getWavefunction(vec3 p, int l, int m, float boxScale, float angNorm, sampler2D radTex, float maxRad) {
     float val = 0.0;
 
-    if (n > 0) {
-        float fN = float(n);
-        float fL = float(l);
+    vec3 pos = p * boxScale;
+    float r = length(pos);
 
-        vec3 pos = p * boxScale;
-        float r = length(pos);
+    float u = r / maxRad;
 
-        float effectiveRad = 12.0 + fN * fN * 4.0;
+    if (u <= 1.0) {
+        float safeR = r + 1e-20;
 
-        if (r <= effectiveRad) {
-            float safeR = r + 1e-20;
+        float R = texture2D(radTex, vec2(u, 0.5)).r;
 
-            float cosTheta = clamp(pos.z / safeR, -1.0, 1.0);
-            float phi = atan(pos.y, pos.x);
+        float cosTheta = clamp(pos.z / safeR, -1.0, 1.0);
+        float phi = atan(pos.y, pos.x);
 
-            float rho = (2.0 * r) / fN;
+        float Y_val = legendre(l, m, cosTheta);
+        float Y = 0.0;
 
-            float L_val = laguerre(n - l - 1, 2 * l + 1, rho);
-            float R = radNorm * pow(rho, fL) * exp(-rho * 0.5) * L_val;
-
-            float Y_val = legendre(l, m, cosTheta);
-
-            float Y = 0.0;
-            if (m == 0) {
-                Y = angNorm * Y_val;
+        if (m == 0) {
+            Y = angNorm * Y_val;
+        } else {
+            float sqrt2 = 1.41421356;
+            if (m > 0) {
+                Y = sqrt2 * angNorm * Y_val * cos(float(m) * phi);
             } else {
-                float sqrt2 = 1.41421356;
-                if (m > 0) {
-                    Y = sqrt2 * angNorm * Y_val * cos(float(m) * phi);
-                } else {
-                    Y = sqrt2 * angNorm * Y_val * sin(float(-m) * phi);
-                }
+                Y = sqrt2 * angNorm * Y_val * sin(float(-m) * phi);
             }
-
-            val = R * Y;
         }
+
+        val = R * Y;
     }
+
     return val;
   }
 `;
@@ -174,19 +139,19 @@ export const FRAGMENT_SHADER = `
   uniform float uOpacity;
   uniform float uRaySteps;
 
-  uniform int uN;
   uniform int uL;
   uniform int uM;
   uniform float uScale;
-  uniform float uRadNorm;
   uniform float uAngNorm;
+  uniform float uMaxRad;
+  uniform sampler2D uRadialMap;
 
-  uniform int uPrevN;
   uniform int uPrevL;
   uniform int uPrevM;
   uniform float uPrevScale;
-  uniform float uPrevRadNorm;
   uniform float uPrevAngNorm;
+  uniform float uPrevMaxRad;
+  uniform sampler2D uPrevRadialMap;
 
   uniform float uMix;
 
@@ -201,19 +166,18 @@ export const FRAGMENT_SHADER = `
   }
 
   float getInterpolatedWavefunction(vec3 p) {
-      float result = 0.0;
+      float finalVal = 0.0;
 
       if (uMix < 0.001) {
-          result = getWavefunction(p, uPrevN, uPrevL, uPrevM, uPrevScale, uPrevRadNorm, uPrevAngNorm);
+          finalVal = getWavefunction(p, uPrevL, uPrevM, uPrevScale, uPrevAngNorm, uPrevRadialMap, uPrevMaxRad);
       } else if (uMix > 0.999) {
-          result = getWavefunction(p, uN, uL, uM, uScale, uRadNorm, uAngNorm);
+          finalVal = getWavefunction(p, uL, uM, uScale, uAngNorm, uRadialMap, uMaxRad);
       } else {
-          float valPrev = getWavefunction(p, uPrevN, uPrevL, uPrevM, uPrevScale, uPrevRadNorm, uPrevAngNorm);
-          float valTarget = getWavefunction(p, uN, uL, uM, uScale, uRadNorm, uAngNorm);
-          result = mix(valPrev, valTarget, smoothstep(0.0, 1.0, uMix));
+          float valPrev = getWavefunction(p, uPrevL, uPrevM, uPrevScale, uPrevAngNorm, uPrevRadialMap, uPrevMaxRad);
+          float valTarget = getWavefunction(p, uL, uM, uScale, uAngNorm, uRadialMap, uMaxRad);
+          finalVal = mix(valPrev, valTarget, uMix);
       }
-
-      return result;
+      return finalVal;
   }
 
   vec3 getNormal(vec3 p) {
@@ -228,9 +192,13 @@ export const FRAGMENT_SHADER = `
     float dz = abs(z1) - abs(val);
 
     vec3 grad = vec3(dx, dy, dz);
-    if (dot(grad, grad) < 1e-12) return vec3(0.0, 0.0, 1.0);
+    vec3 result = vec3(0.0, 0.0, 1.0);
 
-    return normalize(-grad);
+    if (dot(grad, grad) >= 1e-12) {
+      result = normalize(-grad);
+    }
+
+    return result;
   }
 
   void main() {
