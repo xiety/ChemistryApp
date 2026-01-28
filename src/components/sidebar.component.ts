@@ -1,4 +1,4 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SliderComponent } from './slider.component';
 import { SwitchComponent } from './switch.component';
@@ -9,7 +9,8 @@ import { ORBITAL_LABELS } from '../services/orbital-math.service';
   selector: 'app-sidebar',
   imports: [CommonModule, SliderComponent, SwitchComponent],
   templateUrl: './sidebar.component.html',
-  styleUrl: './sidebar.component.css'
+  styleUrl: './sidebar.component.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SidebarComponent {
   state = inject(OrbitalStateService);

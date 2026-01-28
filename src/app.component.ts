@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { OrbitalViewerComponent } from './components/orbital-viewer.component';
 import { SidebarComponent } from './components/sidebar.component';
@@ -6,10 +6,10 @@ import { OrbitalStateService } from './services/orbital-state.service';
 
 @Component({
   selector: 'app-root',
-  standalone: true,
   imports: [CommonModule, OrbitalViewerComponent, SidebarComponent],
   templateUrl: './app.component.html',
-  styleUrl: './app.component.css'
+  styleUrl: './app.component.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class AppComponent {
   state = inject(OrbitalStateService);

@@ -1,4 +1,4 @@
-import { Injectable, OnDestroy, inject } from '@angular/core';
+import { Injectable, inject, DestroyRef } from '@angular/core';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { MarchingCubes } from 'three/addons/objects/MarchingCubes.js';
@@ -60,8 +60,10 @@ export const DEFAULT_SETTINGS: RenderSettings = {
 @Injectable({
   providedIn: 'root'
 })
-export class OrbitalRenderingService implements OnDestroy {
+export class OrbitalRenderingService {
   private mathService = inject(OrbitalMathService);
+  private destroyRef = inject(DestroyRef);
+
   private scene!: THREE.Scene;
   private camera!: THREE.PerspectiveCamera;
   private renderer!: THREE.WebGLRenderer;
@@ -88,7 +90,11 @@ export class OrbitalRenderingService implements OnDestroy {
   private isTransitioning = false;
   private readonly transitionDuration = 1000;
 
-  constructor() { }
+  constructor() {
+    this.destroyRef.onDestroy(() => {
+      this.dispose();
+    });
+  }
 
   init(container: HTMLElement, width: number, height: number) {
     if (this.isInitialized) return;
@@ -527,7 +533,7 @@ export class OrbitalRenderingService implements OnDestroy {
     this.renderer.render(this.scene, this.camera);
   };
 
-  ngOnDestroy() {
+  private dispose() {
     cancelAnimationFrame(this.animationFrameId);
     if (this.renderer) this.renderer.dispose();
     if (this.volMaterial) this.volMaterial.dispose();

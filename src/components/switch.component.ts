@@ -1,12 +1,12 @@
-import { Component, input, output } from '@angular/core';
+import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-switch',
-  standalone: true,
   imports: [CommonModule],
   templateUrl: './switch.component.html',
-  styleUrl: './switch.component.css'
+  styleUrl: './switch.component.css',
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SwitchComponent {
   label = input.required<string>();
